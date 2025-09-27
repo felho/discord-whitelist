@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(open https://localhost:5173/test-wms.html)",
+      "Bash(open https://localhost:5173/debug-test.html)",
+      "Bash(open https://localhost:5174/debug-test.html)",
+      "Bash(node:*)",
+      "Bash(open https://localhost:5174/test-wms.html)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
