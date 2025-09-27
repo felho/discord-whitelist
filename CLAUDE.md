@@ -130,7 +130,7 @@ The system implements a sophisticated multi-tier storage strategy:
 - **Logging**: Debug logging with `[WL]` prefix, configurable via `DEBUG` constant
 - **Security**: Uses Function constructor to inject Tampermonkey APIs into execution context
 - **Storage**: Tampermonkey storage properly accessible via Function constructor injection
-- **Testing**: Comprehensive test suite available (test-wms.html, debug-test.html, reload-test.html)
+- **Testing**: Comprehensive test suite available in `/test/` directory
 
 ## Future Development
 

@@ -16,7 +16,7 @@ A Tampermonkey userscript that filters Discord web interface to show only messag
 - **Search & Analytics**: Advanced search functionality with usage statistics
 - **Developer API**: Comprehensive API with both legacy compatibility and advanced features
 - **Tampermonkey Integration**: Function constructor injection ensures proper GM API access
-- **Testing Suite**: Comprehensive test infrastructure (test-wms.html, debug-test.html, reload-test.html)
+- **Testing Suite**: Comprehensive test infrastructure in `/test/` directory
 
 ### 🔧 **Technical Implementation**
 
