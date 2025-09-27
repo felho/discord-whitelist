@@ -119,7 +119,12 @@ The system implements a sophisticated multi-tier storage strategy:
 - `search.*` - Search functionality (users, fuzzy matching)
 - `data.*` - Import/export operations (JSON, CSV, TXT formats)
 - `events.*` - Event system (on, off, emit for state changes)
-- `system.*` - System information (version, storageType, config)
+- `system.*` - System information and configuration management:
+  - `getConfig()` - Get current configuration with deep copy
+  - `setConfig(partial)` - Safely merge configuration changes (deep merge for nested objects)
+  - `setEnabled(boolean)` - Safe toggle for filtering enabled state
+  - `setHardHide(boolean)` - Safe toggle for hard hide mode
+  - `setShowAllTemp(boolean)` - Safe toggle for temporary show all mode
 - `dev.*` - Developer utilities (debugging, data migration, cleanup)
 - **`filter.*`** - Message filtering controls (start, stop, refresh, clear, getStats)
 - **`ui.*`** - User interface controls (show, hide, toggle, isVisible)
@@ -143,6 +148,8 @@ The system implements a sophisticated multi-tier storage strategy:
 - **Testing**: Comprehensive test suite available in `/test/` directory
 - **Filtering**: Real-time message processing with MutationObserver and TreeWalker API
 - **Performance**: Optimized with debouncing, batch processing, and message caching
+- **API Safety**: Deep merge configuration updates prevent nested object corruption
+- **Filter Reliability**: Immediate visibility restoration when filtering is disabled, no page refresh required
 
 ## Current Development Status
 
