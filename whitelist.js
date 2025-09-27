@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "v0.4.0 (User Interface Implementation)";
+  const VERSION = "v0.4.2 (UI Implementation + Button Fixes)";
 
   // --- Storage adapter (prefers page localStorage, falls back to TM storage) ---
   const Storage = (() => {
@@ -1706,6 +1706,10 @@
       this.panel.style.left = this.position.x + 'px';
       this.panel.style.top = this.position.y + 'px';
 
+      // Hide panel initially (it will be shown when user toggles it)
+      this.panel.style.display = 'none';
+      this.isVisible = false;
+
       // Initialize state
       this.updateCollectionSelector();
       this.updateWhitelistDisplay();
@@ -1714,43 +1718,70 @@
     }
 
     bindEvents() {
-      if (!this.panel) return;
+      console.log('[WL] bindEvents called, panel exists:', !!this.panel);
+      if (!this.panel) {
+        console.error('[WL] bindEvents: panel is null, returning');
+        return;
+      }
+
+      // Helper function to safely add event listeners
+      const safeAddEventListener = (selector, event, handler, context = '') => {
+        const element = this.panel.querySelector(selector);
+        if (element) {
+          console.log(`[WL] Adding event listener for ${selector} ${context}`, element);
+          element.addEventListener(event, handler);
+
+          // Test if the event listener works by adding a test click
+          if (selector === '.wl-panel-close' || selector === '.wl-panel-minimize') {
+            // Add a second listener to verify clicks are being detected
+            element.addEventListener('click', () => {
+              console.log(`[WL] CLICK DETECTED on ${selector}!`);
+            });
+
+            // Check if element is visible and clickable
+            const rect = element.getBoundingClientRect();
+            console.log(`[WL] Button ${selector} position:`, {
+              visible: rect.width > 0 && rect.height > 0,
+              position: { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
+            });
+          }
+        } else {
+          console.warn(`[WL] Element not found: ${selector} ${context}`);
+        }
+      };
 
       // Header controls
-      this.panel.querySelector('.wl-panel-close').addEventListener('click', () => this.hidePanel());
-      this.panel.querySelector('.wl-panel-minimize').addEventListener('click', () => this.toggleMinimize());
+      safeAddEventListener('.wl-panel-close', 'click', this.hidePanel.bind(this), '(close button)');
+      safeAddEventListener('.wl-panel-minimize', 'click', this.toggleMinimize.bind(this), '(minimize button)');
 
       // Make draggable
-      const header = this.panel.querySelector('.wl-panel-header');
-      header.addEventListener('mousedown', (e) => this.startDrag(e));
+      safeAddEventListener('.wl-panel-header', 'mousedown', (e) => this.startDrag(e), '(header for dragging)');
 
       // Collection selector
-      const selector = this.panel.querySelector('.wl-collection-selector');
-      selector.addEventListener('change', (e) => this.handleCollectionSwitch(e.target.value));
+      safeAddEventListener('.wl-collection-selector', 'change', (e) => this.handleCollectionSwitch(e.target.value), '(collection selector)');
 
       // Collection management
-      this.panel.querySelector('.wl-new-collection').addEventListener('click', () => this.createNewCollection());
-      this.panel.querySelector('.wl-rename-collection').addEventListener('click', () => this.renameCollection());
-      this.panel.querySelector('.wl-delete-collection').addEventListener('click', () => this.deleteCollection());
+      safeAddEventListener('.wl-new-collection', 'click', () => this.createNewCollection(), '(new collection button)');
+      safeAddEventListener('.wl-rename-collection', 'click', () => this.renameCollection(), '(rename collection button)');
+      safeAddEventListener('.wl-delete-collection', 'click', () => this.deleteCollection(), '(delete collection button)');
 
       // Whitelist editor
-      const editor = this.panel.querySelector('.wl-whitelist-editor');
-      editor.addEventListener('input', () => this.handleWhitelistChange());
+      safeAddEventListener('.wl-whitelist-editor', 'input', () => this.handleWhitelistChange(), '(whitelist editor)');
 
       // Editor actions
-      this.panel.querySelector('.wl-save-changes').addEventListener('click', () => this.saveChanges());
-      this.panel.querySelector('.wl-clear-collection').addEventListener('click', () => this.clearCurrentCollection());
+      safeAddEventListener('.wl-save-changes', 'click', () => this.saveChanges(), '(save changes button)');
+      safeAddEventListener('.wl-clear-collection', 'click', () => this.clearCurrentCollection(), '(clear collection button)');
 
       // Filter controls
-      this.panel.querySelector('.wl-master-enable').addEventListener('change', (e) => {
+      safeAddEventListener('.wl-master-enable', 'change', (e) => {
         this.storageManager.config.globalSettings.enabled = e.target.checked;
         this.storageManager.saveConfig();
         this.updateFilterStatus();
         // Always refresh messages when enabled state changes to restore visibility when disabled
         this.filterEngine.refreshAllMessages();
-      });
+      }, '(master enable toggle)');
 
-      this.panel.querySelector('.wl-display-mode').addEventListener('change', (e) => {
+      safeAddEventListener('.wl-display-mode', 'change', (e) => {
         const mode = e.target.value;
         this.storageManager.config.globalSettings.hardHide = mode === 'hard-hide';
         this.storageManager.config.globalSettings.showAllTemp = mode === 'show-all';
@@ -1758,30 +1789,35 @@
         this.updateFilterStatus();
         // Always refresh when display mode changes to apply new visibility settings
         this.filterEngine.refreshAllMessages();
-      });
+      }, '(display mode selector)');
 
-      this.panel.querySelector('.wl-temp-override').addEventListener('change', (e) => {
+      safeAddEventListener('.wl-temp-override', 'change', (e) => {
         this.storageManager.config.globalSettings.showAllTemp = e.target.checked;
         this.storageManager.saveConfig();
         this.updateFilterStatus();
         // Always refresh when temp override changes to apply new visibility settings
         this.filterEngine.refreshAllMessages();
-      });
+      }, '(temporary override checkbox)');
 
       // Section toggles
-      this.panel.querySelectorAll('.wl-section-toggle').forEach(toggle => {
-        toggle.addEventListener('click', (e) => {
-          const target = e.target.dataset.target;
-          const content = this.panel.querySelector('#' + target);
-          const isExpanded = content.style.display !== 'none';
-          content.style.display = isExpanded ? 'none' : 'block';
-          e.target.textContent = isExpanded ? '▶' : '▼';
+      const sectionToggles = this.panel.querySelectorAll('.wl-section-toggle');
+      if (sectionToggles.length > 0) {
+        sectionToggles.forEach(toggle => {
+          toggle.addEventListener('click', (e) => {
+            const target = e.target.dataset.target;
+            const content = this.panel.querySelector('#' + target);
+            const isExpanded = content.style.display !== 'none';
+            content.style.display = isExpanded ? 'none' : 'block';
+            e.target.textContent = isExpanded ? '▶' : '▼';
+          });
         });
-      });
+      } else {
+        console.warn('[WL] Section toggles not found');
+      }
 
       // Import/Export
-      this.panel.querySelector('.wl-import-data').addEventListener('click', () => this.showImportDialog());
-      this.panel.querySelector('.wl-export-data').addEventListener('click', () => this.showExportDialog());
+      safeAddEventListener('.wl-import-data', 'click', () => this.showImportDialog(), '(import data button)');
+      safeAddEventListener('.wl-export-data', 'click', () => this.showExportDialog(), '(export data button)');
 
       // Global drag handlers
       document.addEventListener('mousemove', (e) => this.handleDrag(e));
@@ -1798,12 +1834,18 @@
 
     // Panel visibility management
     showPanel() {
-      if (!this.panel) this.createPanel();
+      console.log('[WL] showPanel called');
+      if (!this.panel) {
+        this.createPanel();
+        this.bindEvents();  // Make sure to bind events when creating panel on demand
+      }
       this.panel.style.display = 'block';
       this.isVisible = true;
+      console.log('[WL] Panel shown, isVisible:', this.isVisible);
     }
 
     hidePanel() {
+      console.log('[WL] hidePanel called');
       if (this.panel) {
         this.panel.style.display = 'none';
       }
@@ -1811,6 +1853,7 @@
     }
 
     togglePanel() {
+      console.log('[WL] togglePanel called');
       if (this.isVisible) {
         this.hidePanel();
       } else {
@@ -1819,8 +1862,19 @@
     }
 
     toggleMinimize() {
+      console.log('[WL] toggleMinimize called');
+      if (!this.panel) {
+        console.error('[WL] toggleMinimize: panel is null');
+        return;
+      }
+
       const content = this.panel.querySelector('.wl-panel-content');
       const button = this.panel.querySelector('.wl-panel-minimize');
+
+      if (!content || !button) {
+        console.error('[WL] toggleMinimize: content or button not found', { content: !!content, button: !!button });
+        return;
+      }
 
       if (this.isMinimized) {
         content.style.display = 'block';
@@ -1835,6 +1889,17 @@
 
     // Drag functionality
     startDrag(e) {
+      // Don't start dragging if clicking on buttons or other controls
+      if (e.target.classList.contains('wl-panel-close') ||
+          e.target.classList.contains('wl-panel-minimize') ||
+          e.target.classList.contains('wl-collection-selector') ||
+          e.target.closest('.wl-panel-close') ||
+          e.target.closest('.wl-panel-minimize') ||
+          e.target.closest('.wl-collection-selector')) {
+        console.log('[WL] Drag prevented - clicked on control element');
+        return;
+      }
+
       this.isDragging = true;
       this.panel.classList.add('wl-panel-dragging');
       const rect = this.panel.getBoundingClientRect();
@@ -2226,6 +2291,9 @@
           display: flex;
           align-items: center;
           justify-content: center;
+          z-index: 10;
+          position: relative;
+          pointer-events: all;
         }
 
         .wl-panel-minimize:hover,
@@ -2644,6 +2712,29 @@
         Storage.remove(COLLECTIONS_KEY);
         Storage.remove(CONFIG_KEY);
         location.reload();
+      },
+      testButtons: () => {
+        const panel = document.querySelector('.wl-panel-container');
+        if (!panel) {
+          console.log('[WL] Panel not found in DOM');
+          return;
+        }
+        const closeBtn = panel.querySelector('.wl-panel-close');
+        const minimizeBtn = panel.querySelector('.wl-panel-minimize');
+
+        console.log('[WL] Panel found:', panel);
+        console.log('[WL] Close button:', closeBtn);
+        console.log('[WL] Minimize button:', minimizeBtn);
+
+        if (closeBtn) {
+          console.log('[WL] Attempting to click close button programmatically...');
+          closeBtn.click();
+        }
+
+        if (minimizeBtn) {
+          console.log('[WL] Attempting to click minimize button programmatically...');
+          minimizeBtn.click();
+        }
       },
       exportDebugInfo: () => ({
         version: VERSION,

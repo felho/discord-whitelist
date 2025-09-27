@@ -139,7 +139,7 @@ The system implements a sophisticated multi-tier storage strategy:
 
 ## Technical Notes
 
-- **Version**: Currently v0.4.1 (User Interface Implementation + Critical Bug Fixes)
+- **Version**: Currently v0.4.2 (User Interface Implementation + Bug Fixes)
 - **Cache Busting**: Automatic timestamp parameter prevents caching issues
 - **Error Handling**: Comprehensive try-catch blocks with graceful fallback behavior
 - **Logging**: Debug logging with `[WL]` prefix, configurable via `DEBUG` constant
@@ -192,6 +192,13 @@ The system implements a sophisticated multi-tier storage strategy:
 - Resolved lookup cache synchronization issue where changes required page refresh
 - Enhanced refresh logic with proper cache clearing and message reprocessing
 - Improved error handling and debugging for save operations
+
+**Milestone 2.2: UI Control Button Fixes (v0.4.2)**
+- Fixed panel minimize and close buttons not responding to clicks
+- Resolved event listener attachment issues with proper null checks
+- Fixed drag handler interference with button clicks on panel header
+- Added proper event delegation to prevent drag when clicking control elements
+- Enhanced CSS with z-index and pointer-events for reliable button interaction
 
 ### 🚧 Next Development Phase
 

@@ -101,3 +101,10 @@ This directory contains testing files for the Whitelist Management System.
 - ✅ Enhanced save operation reliability
 - ✅ Improved error handling and debugging
 - ✅ Immediate filter state updates after whitelist changes
+
+### UI Control Button Fixes (v0.4.2)
+- ✅ Panel minimize and close buttons respond correctly to clicks
+- ✅ Fixed event listener attachment with proper null safety
+- ✅ Resolved drag handler interference with button clicks
+- ✅ Proper event delegation prevents drag on control elements
+- ✅ Enhanced CSS for reliable button interaction
