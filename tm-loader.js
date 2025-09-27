@@ -12,7 +12,7 @@
 // ==/UserScript==
 
 (function () {
-  const SRC = "https://localhost:5173/whitelist.js";
+  const SRC = "https://localhost:5174/whitelist.js";
   const url = `${SRC}?ts=${Date.now()}`; // cache-buster
 
   GM_addStyle(`
@@ -34,9 +34,16 @@
     onload: (res) => {
       try {
         if (res.status !== 200) throw new Error(`HTTP ${res.status}`);
+
+        // Inject GM APIs directly into the code before execution
         const code = res.responseText + "\n//# sourceURL=whitelist.js";
-        // FONTOS: sandbox eval → látja a GM_* API-kat
-        (0, eval)(code);
+
+        // Execute with GM APIs in scope using Function constructor
+        const func = new Function(
+          'GM_getValue', 'GM_setValue', 'GM_deleteValue',
+          code
+        );
+        func(GM_getValue, GM_setValue, GM_deleteValue);
         console.log(
           "[Whitelist Loader] executed (sandbox eval):",
           url,
