@@ -1338,8 +1338,11 @@
 
     refreshAllMessages() {
       try {
+        log('Starting refreshAllMessages...');
+
         // Clear cache
         this.messageCache.clear();
+        log('Cache cleared');
 
         // Re-process all visible messages
         const allMessages = document.querySelectorAll(MESSAGE_SELECTORS.messageContainer);
@@ -1355,16 +1358,22 @@
         const messagesToProcess = allMessages.length > 0 ? Array.from(allMessages) : Array.from(altMessages);
 
         if (messagesToProcess.length > 0) {
-          // If filtering is disabled, clear all filter classes instead of processing
+          // ALWAYS clear all filter classes first to reset state
+          log(`Clearing all filter classes from ${messagesToProcess.length} messages before reprocessing`);
+          messagesToProcess.forEach(messageElement => {
+            this.removeFilterClasses(messageElement);
+          });
+
+          // If filtering is disabled, we're done after clearing
           if (!this.isEnabled()) {
-            log(`Filtering disabled - clearing all filter classes from ${messagesToProcess.length} messages`);
-            messagesToProcess.forEach(messageElement => {
-              this.removeFilterClasses(messageElement);
-            });
+            log(`Filtering disabled - stopped after clearing filter classes`);
           } else {
-            log(`Refreshing ${messagesToProcess.length} messages after whitelist change`);
+            log(`Reprocessing ${messagesToProcess.length} messages after clearing filter classes`);
             this.processMessages(messagesToProcess);
+            log('Finished reprocessing messages');
           }
+        } else {
+          log('No messages found to refresh');
         }
       } catch (e) {
         console.error("[WL] Error refreshing messages:", e);
@@ -2030,12 +2039,16 @@
 
         // Save changes
         this.storageManager.saveCollections();
+
+        // CRITICAL: Rebuild the lookup cache since we modified the collection directly
+        this.whitelistManager.rebuildLookupCache();
+
         this.clearUnsavedChanges();
         this.updateStats();
 
         log(`Saved ${added} usernames to collection:`, collection.name);
 
-        // Refresh filtering - always refresh when whitelist changes to apply new filter state
+        // Refresh filtering - the lookup cache is now updated, so filtering will work correctly
         this.filterEngine.refreshAllMessages();
 
       } catch (error) {

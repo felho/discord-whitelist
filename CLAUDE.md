@@ -139,7 +139,7 @@ The system implements a sophisticated multi-tier storage strategy:
 
 ## Technical Notes
 
-- **Version**: Currently v0.4.0 (User Interface Implementation)
+- **Version**: Currently v0.4.1 (User Interface Implementation + Critical Bug Fixes)
 - **Cache Busting**: Automatic timestamp parameter prevents caching issues
 - **Error Handling**: Comprehensive try-catch blocks with graceful fallback behavior
 - **Logging**: Debug logging with `[WL]` prefix, configurable via `DEBUG` constant
@@ -150,6 +150,8 @@ The system implements a sophisticated multi-tier storage strategy:
 - **Performance**: Optimized with debouncing, batch processing, and message caching
 - **API Safety**: Deep merge configuration updates prevent nested object corruption
 - **Filter Reliability**: Immediate visibility restoration when filtering is disabled, no page refresh required
+- **Real-time Updates**: Whitelist changes immediately update message visibility without page refresh
+- **Cache Synchronization**: Automatic lookup cache rebuilding ensures whitelist changes take effect instantly
 
 ## Current Development Status
 
@@ -184,6 +186,12 @@ The system implements a sophisticated multi-tier storage strategy:
 - Discord-themed CSS styling matching platform design
 - Event-driven UI updates with comprehensive error handling
 - Unsaved changes protection and user confirmation dialogs
+
+**Milestone 2.1: Critical Bug Fixes (v0.4.1)**
+- Fixed whitelist editor save functionality to immediately update message visibility
+- Resolved lookup cache synchronization issue where changes required page refresh
+- Enhanced refresh logic with proper cache clearing and message reprocessing
+- Improved error handling and debugging for save operations
 
 ### 🚧 Next Development Phase
 

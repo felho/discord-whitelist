@@ -66,13 +66,15 @@ Complete floating control panel with Discord integration has been implemented:
 - ✅ **Show All Temporary**: Override filtering temporarily to show all messages
 - ✅ **Enabled/Disabled**: Global toggle for all filtering functionality
 
-### 🚧 **Next Phase - User Interface Panel**
+### ✅ **Completed - Critical Bug Fixes (v0.4.1)**
 
-- **Floating Panel**: Inject control panel into Discord web interface
-- **Whitelist Editor**: Textarea for editing whitelist (one username per line)
-- **Save Button**: Persist whitelist changes to storage
-- **Toggle Controls**: Checkboxes for enabling/disabling filtering modes
-- **Visual Feedback**: Show current filtering status and statistics
+Bug fixes and reliability improvements:
+
+- ✅ **Real-time Updates**: Fixed whitelist editor save functionality to immediately update message visibility
+- ✅ **Cache Synchronization**: Resolved lookup cache synchronization issue where changes required page refresh
+- ✅ **Enhanced Refresh Logic**: Improved message reprocessing with proper cache clearing
+- ✅ **Error Handling**: Better error handling and debugging for save operations
+- ✅ **Immediate Feedback**: Whitelist changes now take effect instantly without page refresh
 
 ## Technical Implementation Requirements
 
