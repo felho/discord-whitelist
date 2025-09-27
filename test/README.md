@@ -108,3 +108,11 @@ This directory contains testing files for the Whitelist Management System.
 - ✅ Resolved drag handler interference with button clicks
 - ✅ Proper event delegation prevents drag on control elements
 - ✅ Enhanced CSS for reliable button interaction
+
+### Grouped Message Filtering Fix (v0.4.4)
+- ✅ Fixed consecutive messages from same user being incorrectly filtered
+- ✅ Enhanced username extraction with backward search for grouped messages
+- ✅ Added `findUsernameFromPreviousMessage()` method with intelligent search limits
+- ✅ Improved message element detection for reliable container identification
+- ✅ Performance optimization with search boundaries and logical grouping
+- ✅ Handles Discord's message grouping behavior correctly

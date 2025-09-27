@@ -7,7 +7,7 @@ This directory contains all specification documents for the Discord Whitelist Ta
 ### `spec.md`
 **Main Project Specification**
 - Complete project overview and requirements
-- Current implementation status (v0.4.0 - UI Implementation completed)
+- Current implementation status (v0.4.4 - Grouped Message Filtering Fix completed)
 - Core functionality requirements for all project phases
 - Technical implementation requirements
 - Milestone implementation plan with current progress

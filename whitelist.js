@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "v0.4.2 (UI Implementation + Button Fixes)";
+  const VERSION = "v0.4.4 (Grouped Message Filtering Fix)";
 
   // --- Storage adapter (prefers page localStorage, falls back to TM storage) ---
   const Storage = (() => {
@@ -1063,8 +1063,10 @@
         const usernameElements = Array.from(messageElement.querySelectorAll('[class*="username"]'));
 
         if (usernameElements.length === 0) {
-          log(`extractUsername: No username elements found in message ${messageElement.id}`);
-          return null;
+          log(`extractUsername: No username elements found in message ${messageElement.id}, looking for grouped message`);
+          // This might be a consecutive message from the same user
+          // Look backwards through previous siblings to find the username
+          return this.findUsernameFromPreviousMessage(messageElement);
         }
 
         log(`extractUsername: Found ${usernameElements.length} username elements in message`);
@@ -1116,6 +1118,82 @@
         console.error("[WL] Error extracting username:", e);
         return null;
       }
+    }
+
+    findUsernameFromPreviousMessage(messageElement) {
+      try {
+        log(`findUsernameFromPreviousMessage: Looking for username in previous messages for ${messageElement.id}`);
+
+        // Discord groups consecutive messages from the same user
+        // Walk backwards through previous siblings to find a message with a username
+        let currentElement = messageElement.previousElementSibling;
+        let searchCount = 0;
+        const maxSearch = 10; // Limit search to prevent infinite loops
+
+        while (currentElement && searchCount < maxSearch) {
+          searchCount++;
+
+          // Check if this is a message container
+          if (this.isMessageElement(currentElement)) {
+            log(`findUsernameFromPreviousMessage: Checking previous message ${currentElement.id || 'unknown'} (search #${searchCount})`);
+
+            // Try to extract username from this message
+            const usernameElements = Array.from(currentElement.querySelectorAll('[class*="username"]'));
+
+            for (const element of usernameElements) {
+              const text = element.textContent?.trim();
+
+              if (!text || text.length === 0 || text.length > 32) {
+                continue;
+              }
+
+              // Skip reply preview usernames
+              const isInReplyPreview = element.closest('[class*="repliedText"]') !== null ||
+                                      element.closest('[class*="repliedTextPreview"]') !== null ||
+                                      element.closest('[class*="replyBar"]') !== null;
+
+              if (isInReplyPreview) {
+                continue;
+              }
+
+              // Check if this username is in the main message header
+              const isInHeader = element.closest('[class*="headerText"]') !== null ||
+                                element.closest('[class*="header_"]') !== null ||
+                                element.closest('[class*="messageHeader"]') !== null ||
+                                element.closest('h3') !== null;
+
+              if (isInHeader) {
+                log(`findUsernameFromPreviousMessage: Found username from previous message: "${text}"`);
+                return text;
+              }
+            }
+
+            // If this previous message also has no username, continue searching
+            // but if it has a username that we couldn't match our criteria, stop searching
+            // (this might be a different user's message)
+            if (usernameElements.length > 0) {
+              log(`findUsernameFromPreviousMessage: Previous message has username elements but none matched criteria, stopping search`);
+              break;
+            }
+          }
+
+          currentElement = currentElement.previousElementSibling;
+        }
+
+        log(`findUsernameFromPreviousMessage: No username found in ${searchCount} previous messages`);
+        return null;
+      } catch (e) {
+        console.error("[WL] Error finding username from previous message:", e);
+        return null;
+      }
+    }
+
+    isMessageElement(element) {
+      return element && element.matches && (
+        element.matches('li[id^="chat-messages-"]') ||
+        element.matches('li.message') ||
+        element.id?.startsWith('chat-messages-')
+      );
     }
 
     applyDisplayMode(messageElement, isWhitelisted, username) {

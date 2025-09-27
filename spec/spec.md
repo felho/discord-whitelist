@@ -76,6 +76,17 @@ Bug fixes and reliability improvements:
 - ✅ **Error Handling**: Better error handling and debugging for save operations
 - ✅ **Immediate Feedback**: Whitelist changes now take effect instantly without page refresh
 
+### ✅ **Completed - Grouped Message Filtering Fix (v0.4.4)**
+
+Enhanced message filtering for Discord's message grouping behavior:
+
+- ✅ **Consecutive Message Handling**: Fixed filtering of grouped messages from same user without username elements
+- ✅ **Username Inheritance**: Enhanced `extractUsername()` to search previous messages when username not found
+- ✅ **Backward Search Logic**: Added `findUsernameFromPreviousMessage()` method with intelligent search limits
+- ✅ **Message Element Detection**: Improved `isMessageElement()` helper for reliable message container identification
+- ✅ **Performance Optimization**: Limited search to 10 previous messages to prevent infinite loops
+- ✅ **Logical Grouping**: Stops search when encountering different user's message to respect natural message boundaries
+
 ## Technical Implementation Requirements
 
 ### ✅ **MutationObserver Integration (COMPLETED)**

@@ -139,7 +139,7 @@ The system implements a sophisticated multi-tier storage strategy:
 
 ## Technical Notes
 
-- **Version**: Currently v0.4.3 (User Interface Implementation + Reply Filtering Fix)
+- **Version**: Currently v0.4.4 (User Interface Implementation + Grouped Message Fix)
 - **Cache Busting**: Automatic timestamp parameter prevents caching issues
 - **Error Handling**: Comprehensive try-catch blocks with graceful fallback behavior
 - **Logging**: Debug logging with `[WL]` prefix, configurable via `DEBUG` constant
@@ -207,6 +207,13 @@ The system implements a sophisticated multi-tier storage strategy:
 - Improved handling of Discord's complex reply message structure
 - Added intelligent username detection that skips reply preview elements
 - Better logging for debugging username extraction in complex message structures
+
+**Milestone 2.4: Grouped Message Filtering Fix (v0.4.4)**
+- Fixed consecutive messages from same user not being filtered properly
+- Enhanced username extraction to inherit username from previous messages when not present
+- Added `findUsernameFromPreviousMessage()` method to search backward through message siblings
+- Implemented intelligent message grouping detection with search limits
+- Improved handling of Discord's message grouping behavior for consecutive posts
 
 ### 🚧 Next Development Phase
 
