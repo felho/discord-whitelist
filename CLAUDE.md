@@ -134,7 +134,7 @@ The system implements a sophisticated multi-tier storage strategy:
 
 ## Future Development
 
-Based on `spec.md`, the project roadmap includes:
+Based on `spec/spec.md`, the project roadmap includes:
 
 - Discord bot integration with discord.js
 - Database storage (SQLite/MongoDB) replacing JSON
