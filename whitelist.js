@@ -1054,33 +1054,63 @@
 
     extractUsername(messageElement) {
       try {
-        // Try multiple selectors for different Discord message types
-        const selectors = [
-          MESSAGE_SELECTORS.authorElement,
-          MESSAGE_SELECTORS.replyAuthor,
-          '[class*="headerText"] [class*="username"]',
-          '[class*="header"] [class*="username"]'
-        ];
+        // Discord message structure analysis:
+        // - Regular messages have username in the header
+        // - Reply messages have TWO usernames: the referenced user AND the actual author
+        // - We need to find the actual message author, not the referenced user
 
-        for (const selector of selectors) {
-          const authorElement = messageElement.querySelector(selector);
-          if (authorElement && authorElement.textContent) {
-            const username = authorElement.textContent.trim();
-            if (username && username.length > 0) {
-              return username;
-            }
-          }
+        // Strategy: Get all username elements and filter intelligently
+        const usernameElements = Array.from(messageElement.querySelectorAll('[class*="username"]'));
+
+        if (usernameElements.length === 0) {
+          log(`extractUsername: No username elements found in message ${messageElement.id}`);
+          return null;
         }
 
-        // Fallback: look for any username-like text
-        const usernameElements = messageElement.querySelectorAll('[class*="username"]');
-        for (const element of usernameElements) {
+        log(`extractUsername: Found ${usernameElements.length} username elements in message`);
+
+        // For replies, we need to skip the first username (referenced user) if it's in a reply container
+        for (let i = 0; i < usernameElements.length; i++) {
+          const element = usernameElements[i];
           const text = element.textContent?.trim();
-          if (text && text.length > 0 && text.length <= 32) {
+
+          if (!text || text.length === 0 || text.length > 32) {
+            continue;
+          }
+
+          // Check if this username is in a reply preview section
+          const isInReplyPreview = element.closest('[class*="repliedText"]') !== null ||
+                                   element.closest('[class*="repliedTextPreview"]') !== null ||
+                                   element.closest('[class*="replyBar"]') !== null;
+
+          if (isInReplyPreview) {
+            log(`extractUsername: Skipping reply preview username at index ${i}: "${text}"`);
+            continue;
+          }
+
+          // Check if this username is in the main message header
+          const isInHeader = element.closest('[class*="headerText"]') !== null ||
+                            element.closest('[class*="header_"]') !== null ||
+                            element.closest('[class*="messageHeader"]') !== null ||
+                            element.closest('h3') !== null;  // Discord often uses h3 for message headers
+
+          if (isInHeader || i === usernameElements.length - 1) {
+            // This should be the actual message author
+            log(`extractUsername: Found message author at index ${i}: "${text}" (inHeader: ${isInHeader})`);
             return text;
           }
         }
 
+        // Fallback: If we couldn't determine the structure, return the last username found
+        // (which is usually the actual author)
+        const lastUsername = usernameElements[usernameElements.length - 1];
+        const fallbackText = lastUsername?.textContent?.trim();
+        if (fallbackText && fallbackText.length > 0 && fallbackText.length <= 32) {
+          log(`extractUsername: Using fallback (last username): "${fallbackText}"`);
+          return fallbackText;
+        }
+
+        log(`extractUsername: No valid username found for message ${messageElement.id}`);
         return null;
       } catch (e) {
         console.error("[WL] Error extracting username:", e);

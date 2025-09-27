@@ -139,7 +139,7 @@ The system implements a sophisticated multi-tier storage strategy:
 
 ## Technical Notes
 
-- **Version**: Currently v0.4.2 (User Interface Implementation + Bug Fixes)
+- **Version**: Currently v0.4.3 (User Interface Implementation + Reply Filtering Fix)
 - **Cache Busting**: Automatic timestamp parameter prevents caching issues
 - **Error Handling**: Comprehensive try-catch blocks with graceful fallback behavior
 - **Logging**: Debug logging with `[WL]` prefix, configurable via `DEBUG` constant
@@ -152,6 +152,7 @@ The system implements a sophisticated multi-tier storage strategy:
 - **Filter Reliability**: Immediate visibility restoration when filtering is disabled, no page refresh required
 - **Real-time Updates**: Whitelist changes immediately update message visibility without page refresh
 - **Cache Synchronization**: Automatic lookup cache rebuilding ensures whitelist changes take effect instantly
+- **Reply Message Handling**: Proper extraction of actual message author vs referenced user in Discord replies
 
 ## Current Development Status
 
@@ -199,6 +200,13 @@ The system implements a sophisticated multi-tier storage strategy:
 - Fixed drag handler interference with button clicks on panel header
 - Added proper event delegation to prevent drag when clicking control elements
 - Enhanced CSS with z-index and pointer-events for reliable button interaction
+
+**Milestone 2.3: Reply Message Filtering Fix (v0.4.3)**
+- Fixed incorrect filtering of reply messages from whitelisted users
+- Enhanced username extraction to properly distinguish between reply author and referenced user
+- Improved handling of Discord's complex reply message structure
+- Added intelligent username detection that skips reply preview elements
+- Better logging for debugging username extraction in complex message structures
 
 ### 🚧 Next Development Phase
 
