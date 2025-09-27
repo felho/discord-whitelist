@@ -1352,12 +1352,19 @@
         const anyLi = document.querySelectorAll('li');
         log(`Found ${anyLi.length} total li elements`);
 
-        if (allMessages.length > 0) {
-          log(`Refreshing ${allMessages.length} messages after whitelist change`);
-          this.processMessages(Array.from(allMessages));
-        } else if (altMessages.length > 0) {
-          log(`Using alternative selector - processing ${altMessages.length} messages`);
-          this.processMessages(Array.from(altMessages));
+        const messagesToProcess = allMessages.length > 0 ? Array.from(allMessages) : Array.from(altMessages);
+
+        if (messagesToProcess.length > 0) {
+          // If filtering is disabled, clear all filter classes instead of processing
+          if (!this.isEnabled()) {
+            log(`Filtering disabled - clearing all filter classes from ${messagesToProcess.length} messages`);
+            messagesToProcess.forEach(messageElement => {
+              this.removeFilterClasses(messageElement);
+            });
+          } else {
+            log(`Refreshing ${messagesToProcess.length} messages after whitelist change`);
+            this.processMessages(messagesToProcess);
+          }
         }
       } catch (e) {
         console.error("[WL] Error refreshing messages:", e);
@@ -1730,9 +1737,8 @@
         this.storageManager.config.globalSettings.enabled = e.target.checked;
         this.storageManager.saveConfig();
         this.updateFilterStatus();
-        if (this.filterEngine.isEnabled()) {
-          this.filterEngine.refreshAllMessages();
-        }
+        // Always refresh messages when enabled state changes to restore visibility when disabled
+        this.filterEngine.refreshAllMessages();
       });
 
       this.panel.querySelector('.wl-display-mode').addEventListener('change', (e) => {
@@ -1741,18 +1747,16 @@
         this.storageManager.config.globalSettings.showAllTemp = mode === 'show-all';
         this.storageManager.saveConfig();
         this.updateFilterStatus();
-        if (this.filterEngine.isEnabled()) {
-          this.filterEngine.refreshAllMessages();
-        }
+        // Always refresh when display mode changes to apply new visibility settings
+        this.filterEngine.refreshAllMessages();
       });
 
       this.panel.querySelector('.wl-temp-override').addEventListener('change', (e) => {
         this.storageManager.config.globalSettings.showAllTemp = e.target.checked;
         this.storageManager.saveConfig();
         this.updateFilterStatus();
-        if (this.filterEngine.isEnabled()) {
-          this.filterEngine.refreshAllMessages();
-        }
+        // Always refresh when temp override changes to apply new visibility settings
+        this.filterEngine.refreshAllMessages();
       });
 
       // Section toggles
@@ -2031,10 +2035,8 @@
 
         log(`Saved ${added} usernames to collection:`, collection.name);
 
-        // Refresh filtering
-        if (this.filterEngine.isEnabled()) {
-          this.filterEngine.refreshAllMessages();
-        }
+        // Refresh filtering - always refresh when whitelist changes to apply new filter state
+        this.filterEngine.refreshAllMessages();
 
       } catch (error) {
         console.error('[WL] Save failed:', error);
@@ -2569,7 +2571,32 @@
       storageType: Storage.type,
       getConfig: () => ({ ...storageManager.config }),
       setConfig: (partial) => {
-        Object.assign(storageManager.config, partial);
+        // Deep merge for nested objects like globalSettings
+        function deepMerge(target, source) {
+          for (const key in source) {
+            if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+              target[key] = target[key] || {};
+              deepMerge(target[key], source[key]);
+            } else {
+              target[key] = source[key];
+            }
+          }
+        }
+
+        deepMerge(storageManager.config, partial);
+        storageManager.saveConfig();
+      },
+      // Convenience methods for common config updates
+      setEnabled: (enabled) => {
+        storageManager.config.globalSettings.enabled = enabled;
+        storageManager.saveConfig();
+      },
+      setHardHide: (hardHide) => {
+        storageManager.config.globalSettings.hardHide = hardHide;
+        storageManager.saveConfig();
+      },
+      setShowAllTemp: (showAllTemp) => {
+        storageManager.config.globalSettings.showAllTemp = showAllTemp;
         storageManager.saveConfig();
       },
     },
