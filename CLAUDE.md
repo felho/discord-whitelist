@@ -27,43 +27,77 @@ Note: The project requires HTTPS for local development due to Discord's security
 **tm-loader.js** - Tampermonkey loader script that:
 
 - Runs on `https://discord.com/*`
-- Fetches and executes `whitelist.js` from `https://localhost:5173/`
-- Uses sandbox eval to maintain access to Tampermonkey APIs (`GM_*`)
+- Fetches and executes `whitelist.js` from `https://localhost:5174/`
+- Uses Function constructor to inject Tampermonkey APIs (`GM_*`) into execution context
 - Provides visual feedback through a temporary badge indicator
 - Requires Tampermonkey grants: `GM_xmlhttpRequest`, `GM_addStyle`, `GM_getValue`, `GM_setValue`, `GM_deleteValue`
 
-**whitelist.js** - Main userscript logic with:
+**whitelist.js** - Advanced Whitelist Management System with:
 
+- Object-oriented architecture with specialized managers (WhitelistManager, CollectionManager, etc.)
 - Multi-tier storage system (localStorage → Tampermonkey storage → memory fallback)
-- State management for whitelist, enabled status, display modes
-- Developer API exposed on `window.WL` for console debugging
-- Comprehensive error handling and logging with `[WL]` prefix
+- Multiple whitelist collections with metadata and settings
+- Event-driven state management with real-time notifications
+- Import/export functionality (JSON, CSV, TXT formats)
+- Advanced search and analytics capabilities
+- Comprehensive developer API exposed on `window.WL`
+- Legacy API compatibility for backward compatibility
 
 ### Storage Architecture
 
-The system implements a three-tier storage fallback strategy:
+The system implements a sophisticated multi-tier storage strategy:
 
 1. **Primary**: Page `localStorage` (preferred for performance)
 2. **Secondary**: Tampermonkey storage (`GM_getValue`/`GM_setValue`) for persistence across page reloads
 3. **Fallback**: In-memory storage (non-persistent, issues warning)
 
-Storage key: `tm_discord_whitelist_filter_v1`
+**Storage Keys**:
+- `tm_discord_whitelist_filter_v1` - Legacy data (migrated automatically)
+- `tm_discord_whitelist_collections_v1` - Whitelist collections
+- `tm_discord_whitelist_config_v1` - System configuration
 
-### State Structure
+### Enhanced Data Models
 
+**WhitelistEntry**:
 ```javascript
 {
-  whitelist: [],      // Array of whitelisted usernames (strings)
-  enabled: true,      // Whether filtering is active
-  hardHide: false,    // Display mode setting
-  showAllTemp: false  // Temporary override setting
+  username: string,      // Discord username (normalized)
+  dateAdded: Date,       // When user was added
+  lastSeen: Date,        // Last message processed
+  source: string,        // How added ('manual', 'import', 'legacy')
+  notes: string          // Optional user notes
+}
+```
+
+**WhitelistCollection**:
+```javascript
+{
+  id: string,            // Unique collection ID
+  name: string,          // User-defined name
+  entries: Map,          // Username entries (case-insensitive keys)
+  settings: Object,      // Collection-specific settings
+  metadata: Object       // Creation/modification timestamps
+}
+```
+
+**System Configuration**:
+```javascript
+{
+  activeCollection: string,     // Currently active collection ID
+  collections: Array,           // Available collections
+  globalSettings: {
+    enabled: true,              // Master toggle
+    hardHide: false,           // Display mode
+    showAllTemp: false,        // Temporary override
+    caseSensitive: false,      // Username matching
+    maxEntries: 1000          // Per-collection limit
+  }
 }
 ```
 
 ### Developer API
 
-Exposed on `window.WL`:
-
+**Legacy API (Backward Compatible)**:
 - `getState()` - Returns current state snapshot
 - `setState(partial)` - Updates state with partial object
 - `resetState()` - Resets to defaults and clears storage
@@ -71,21 +105,32 @@ Exposed on `window.WL`:
 - `removeFromWhitelist(name)` - Removes username (case-insensitive)
 - `clearWhitelist()` - Empties the whitelist array
 
+**Advanced API**:
+- `whitelist.*` - WhitelistManager operations (add, remove, isWhitelisted, getStats, bulkUpdate)
+- `collections.*` - Collection management (create, delete, switch, getAll, getActive)
+- `search.*` - Search functionality (users, fuzzy matching)
+- `data.*` - Import/export operations (JSON, CSV, TXT formats)
+- `events.*` - Event system (on, off, emit for state changes)
+- `system.*` - System information (version, storageType, config)
+- `dev.*` - Developer utilities (debugging, data migration, cleanup)
+
 ## Development Workflow
 
 1. **Setup**: Install SSL certificates for HTTPS localhost
-2. **Development**: Start `http-server` with SSL on port 5173
+2. **Development**: Start `http-server` with SSL on port 5174 (or 5173)
 3. **Testing**: Install `tm-loader.js` in Tampermonkey, navigate to Discord
-4. **Debugging**: Use `window.WL` API in browser console for state inspection
+4. **Debugging**: Use `window.WL` API in browser console for comprehensive testing
 5. **Iteration**: Edit `whitelist.js`, reload Discord page (cache-busted automatically)
 
 ## Technical Notes
 
-- **Version**: Currently v0.1.0 (Milestone 1: State & Storage)
+- **Version**: Currently v0.2.0 (Whitelist Management System)
 - **Cache Busting**: Automatic timestamp parameter prevents caching issues
-- **Error Handling**: Comprehensive try-catch blocks with fallback behavior
+- **Error Handling**: Comprehensive try-catch blocks with graceful fallback behavior
 - **Logging**: Debug logging with `[WL]` prefix, configurable via `DEBUG` constant
-- **Security**: Uses sandbox eval to maintain Tampermonkey API access while executing remote code
+- **Security**: Uses Function constructor to inject Tampermonkey APIs into execution context
+- **Storage**: Tampermonkey storage properly accessible via Function constructor injection
+- **Testing**: Comprehensive test suite available (test-wms.html, debug-test.html, reload-test.html)
 
 ## Future Development
 
