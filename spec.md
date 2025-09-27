@@ -1,4 +1,8 @@
-# Milestone Plan for Discord Whitelist Project
+# Discord Whitelist Tampermonkey Script Specification
+
+## Project Overview
+
+A Tampermonkey userscript that filters Discord web interface to show only messages from whitelisted users. The script provides a floating control panel for managing the whitelist and implements real-time message filtering with multiple display modes.
 
 ## Current Implementation Details
 
@@ -9,37 +13,130 @@
 - Verified console logging, versioning, and `[WL]` debug prefix.
 - State persists correctly when using Tampermonkey storage backend.
 
-## Milestone 1: Initial Setup and Basic Functionality
+## Core Functionality Requirements
 
-- Set up the project repository and environment.
-- Implement basic Discord bot connection using discord.js.
-- Create a command to add users to the whitelist.
-- Store whitelist data in a simple JSON file.
+### Whitelist Management System
 
-## Milestone 2: Persistent Storage and Validation
+- **Whitelist Storage**: Maintain a list of allowed Discord usernames per channel
+- **Persistence**: Store whitelist in browser localStorage with Tampermonkey storage fallback
+- **Case Sensitivity**: Handle usernames with case-insensitive matching
+- **Duplicate Prevention**: Automatically prevent duplicate entries in whitelist
 
-- Replace JSON file storage with a database (e.g., SQLite or MongoDB).
-- Implement validation to prevent duplicate whitelist entries.
-- Add command to remove users from the whitelist.
-- Add command to list all whitelisted users.
+### Message Filtering Engine
 
-## Milestone 3: Enhanced Bot Features
+- **Real-time Filtering**: Filter messages as they appear in Discord channels
+- **DOM Scanning**: Scan Discord message containers (`li` elements) for username detection
+- **Author Extraction**: Extract username from Discord's message structure
+- **Dynamic Content**: Handle Discord's infinite scroll and dynamic message loading
 
-- Implement role-based access control for whitelist commands.
-- Add logging for whitelist changes.
-- Implement error handling and user feedback for commands.
-- Add a command to check if a user is whitelisted.
+### Display Modes
 
-## Milestone 4: Deployment and Testing
+- **Normal Mode**: Show whitelisted messages, collapse non-whitelisted with placeholder
+- **Hard Hide Mode**: Completely remove non-whitelisted messages from DOM
+- **Show All Temporary**: Override filtering temporarily to show all messages
+- **Enabled/Disabled**: Global toggle for all filtering functionality
 
-- Prepare the bot for deployment (environment variables, config files).
-- Deploy the bot to a cloud service or server.
-- Write tests for bot commands and database interactions.
-- Conduct user testing and gather feedback.
+### User Interface Panel
 
-## Milestone 5: Documentation and Finalization
+- **Floating Panel**: Inject control panel into Discord web interface
+- **Whitelist Editor**: Textarea for editing whitelist (one username per line)
+- **Save Button**: Persist whitelist changes to storage
+- **Toggle Controls**: Checkboxes for enabling/disabling filtering modes
+- **Visual Feedback**: Show current filtering status and statistics
 
-- Write comprehensive documentation for setup and usage.
-- Create a troubleshooting guide.
-- Optimize code and refactor as needed.
-- Plan for future features and maintenance.
+## Technical Implementation Requirements
+
+### MutationObserver Integration
+
+- **DOM Watching**: Monitor Discord DOM for dynamically added message elements
+- **Performance Optimization**: Efficient handling of rapid message updates
+- **Debouncing**: Prevent excessive filtering operations during bulk updates
+- **Error Recovery**: Graceful handling of Discord DOM structure changes
+
+### Keyboard Shortcuts
+
+- **Toggle Filtering**: Quick enable/disable of filtering functionality
+- **Add Current User**: Add hovered/selected username to whitelist
+- **Show Panel**: Open/close control panel
+- **Temporary Override**: Quick show-all toggle
+
+### Developer Utilities
+
+- **Console API**: Global functions for debugging and testing
+- **Logging System**: Comprehensive logging with `[WL]` prefix
+- **State Inspection**: Easy access to current filtering state
+- **Reset Functionality**: Quick reset to default settings
+
+## State Management Schema
+
+```javascript
+{
+  whitelist: [],           // Array of whitelisted usernames
+  enabled: true,           // Master enable/disable switch
+  hardHide: false,         // Use hard hide mode vs collapse mode
+  showAllTemp: false,      // Temporary override to show all messages
+  panelVisible: false,     // Control panel visibility state
+  keyboardEnabled: true    // Keyboard shortcuts enabled
+}
+```
+
+## Discord Integration Requirements
+
+### Message Detection
+
+- **Message Containers**: Identify Discord message `li` elements
+- **Username Extraction**: Extract author names from various Discord message formats
+- **Content Preservation**: Maintain Discord functionality while filtering
+- **React Compatibility**: Work with Discord's React-based interface
+
+### Context Handling
+
+- **Text Channels**: Filter messages in server text channels
+- **Direct Messages**: Handle DM conversations
+- **Group Chats**: Support group message filtering
+- **Search Results**: Filter search result messages
+- **Thread Messages**: Handle threaded conversations
+
+### Performance Considerations
+
+- **Memory Efficiency**: Minimize memory impact of filtering operations
+- **CPU Optimization**: Efficient username matching and DOM operations
+- **Scroll Performance**: Maintain smooth scrolling in large channels
+- **Startup Time**: Fast initialization without blocking Discord loading
+
+## Milestone Implementation Plan
+
+### Milestone 1: Core Filtering Foundation
+
+- Implement basic message detection and username extraction
+- Create MutationObserver for dynamic content handling
+- Build core filtering logic with whitelist checking
+- Add basic CSS-based hiding mechanisms
+
+### Milestone 2: User Interface Implementation
+
+- Design and implement floating control panel
+- Add whitelist editing interface with textarea
+- Implement save/load functionality for whitelist
+- Add toggle controls for filtering modes
+
+### Milestone 3: Advanced Features
+
+- Implement keyboard shortcuts system
+- Add collapse mode with placeholder messages
+- Create hard hide mode with DOM removal
+- Add temporary show-all override functionality
+
+### Milestone 4: Polish and Optimization
+
+- Optimize performance for large channels
+- Add visual feedback and status indicators
+- Implement error handling and recovery
+- Add comprehensive logging and debugging tools
+
+### Milestone 5: Testing and Documentation
+
+- Test across different Discord contexts
+- Verify compatibility with Discord updates
+- Create user documentation and setup guide
+- Implement automated testing where possible
