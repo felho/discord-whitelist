@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Whitelist Management System Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test { margin: 10px 0; padding: 10px; border: 1px solid #ccc; }
+        .pass { background-color: #d4edda; }
+        .fail { background-color: #f8d7da; }
+        pre { background-color: #f8f9fa; padding: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Whitelist Management System Test</h1>
+    <div id="results"></div>
+
+    <script src="whitelist.js"></script>
+    <script>
+        const results = document.getElementById('results');
+
+        function addResult(test, result, details = '') {
+            const div = document.createElement('div');
+            div.className = `test ${result ? 'pass' : 'fail'}`;
+            div.innerHTML = `
+                <strong>${test}</strong>: ${result ? 'PASS' : 'FAIL'}
+                ${details ? `<pre>${details}</pre>` : ''}
+            `;
+            results.appendChild(div);
+        }
+
+        async function runTests() {
+            try {
+                // Clear any existing data first for consistent testing
+                try {
+                    window.WL.clearWhitelist();
+                    // Wait a bit for cleanup
+                    await new Promise(resolve => setTimeout(resolve, 50));
+                } catch (e) {
+                    console.warn('Cleanup failed:', e);
+                }
+
+                // Test 1: Basic API availability
+                addResult('API Available', typeof window.WL === 'object');
+                addResult('Version Check', window.WL.version === 'v0.2.0 (Whitelist Management System)');
+
+                // Test 2: Legacy API compatibility
+                const legacyState = window.WL.getState();
+                addResult('Legacy getState()',
+                    typeof legacyState === 'object' &&
+                    Array.isArray(legacyState.whitelist),
+                    JSON.stringify(legacyState, null, 2)
+                );
+
+                // Test 3: Add users via legacy API
+                try {
+                    const added1 = await window.WL.addToWhitelist('testuser1');
+                    const added2 = await window.WL.addToWhitelist('TestUser2');
+                    addResult('Legacy addToWhitelist()', added1 && added2);
+                } catch (e) {
+                    addResult('Legacy addToWhitelist()', false, e.toString());
+                }
+
+                // Test 4: Check if users are whitelisted
+                try {
+                    const isWhitelisted1 = window.WL.whitelist.isWhitelisted('testuser1');
+                    const isWhitelisted2 = window.WL.whitelist.isWhitelisted('testuser2'); // case insensitive
+                    addResult('Case-insensitive lookup', isWhitelisted1 && isWhitelisted2,
+                        `testuser1: ${isWhitelisted1}, testuser2: ${isWhitelisted2}`);
+                } catch (e) {
+                    addResult('Case-insensitive lookup', false, e.toString());
+                }
+
+                // Test 5: New API functionality
+                try {
+                    const stats = window.WL.whitelist.getStats();
+                    addResult('Statistics API',
+                        typeof stats === 'object' && stats.total >= 2,
+                        JSON.stringify(stats, null, 2)
+                    );
+                } catch (e) {
+                    addResult('Statistics API', false, e.toString());
+                }
+
+                // Test 6: Collection management
+                try {
+                    const collectionId = window.WL.collections.create('Test Collection');
+                    const collections = window.WL.collections.getAll();
+                    addResult('Collection creation',
+                        typeof collectionId === 'string' && collections.length >= 2,
+                        `Created collection: ${collectionId}, Total collections: ${collections.length}`
+                    );
+                } catch (e) {
+                    addResult('Collection creation', false, e.toString());
+                }
+
+                // Test 7: Search functionality
+                try {
+                    const searchResults = window.WL.search.users('test');
+                    addResult('Search functionality',
+                        Array.isArray(searchResults) && searchResults.length >= 2,
+                        `Found ${searchResults.length} results: ${searchResults.map(r => r.username).join(', ')}`
+                    );
+                } catch (e) {
+                    addResult('Search functionality', false, e.toString());
+                }
+
+                // Test 8: Export functionality
+                try {
+                    const exported = window.WL.data.export('json');
+                    addResult('Export functionality',
+                        typeof exported === 'string' && exported.includes('testuser1'),
+                        `Exported ${exported.length} characters`
+                    );
+                } catch (e) {
+                    addResult('Export functionality', false, e.toString());
+                }
+
+                // Test 9: Event system
+                try {
+                    let eventFired = false;
+                    const unsubscribe = window.WL.events.on('whitelist:user_added', (data) => {
+                        console.log('Event received:', data);
+                        eventFired = true;
+                    });
+
+                    await window.WL.whitelist.add('eventtest');
+
+                    // Give events time to fire and then test
+                    await new Promise(resolve => setTimeout(resolve, 100));
+
+                    addResult('Event system', eventFired, `Event fired: ${eventFired}`);
+
+                    // Clean up event listener
+                    if (unsubscribe) unsubscribe();
+                } catch (e) {
+                    addResult('Event system', false, e.toString());
+                }
+
+                // Test 10: Debug info generation
+                try {
+                    const debugInfo = window.WL.dev.exportDebugInfo();
+                    addResult('Debug info generation',
+                        typeof debugInfo === 'object' && debugInfo.version,
+                        JSON.stringify(debugInfo, null, 2).substring(0, 200) + '...'
+                    );
+                } catch (e) {
+                    addResult('Debug info generation', false, e.toString());
+                }
+
+                // Test 11: Bulk operations
+                try {
+                    const bulkOps = [
+                        { action: 'add', username: 'bulk1' },
+                        { action: 'add', username: 'bulk2' },
+                        { action: 'remove', username: 'testuser1' }
+                    ];
+                    const bulkResult = await window.WL.whitelist.bulkUpdate(bulkOps);
+                    addResult('Bulk operations',
+                        bulkResult.results.length === 3 && bulkResult.errors.length === 0,
+                        `Results: ${bulkResult.results.length}, Errors: ${bulkResult.errors.length}`
+                    );
+                } catch (e) {
+                    addResult('Bulk operations', false, e.toString());
+                }
+
+                // Test 12: Final state check
+                setTimeout(() => {
+                    try {
+                        const finalState = window.WL.getState();
+                        // After all tests: TestUser2, eventtest, bulk1, bulk2 (testuser1 was removed in bulk ops)
+                        const expectedUsers = ['TestUser2', 'eventtest', 'bulk1', 'bulk2'];
+                        const hasExpectedUsers = expectedUsers.every(user =>
+                            finalState.whitelist.some(w => w.toLowerCase() === user.toLowerCase())
+                        );
+
+                        addResult('Final state consistency',
+                            Array.isArray(finalState.whitelist) && finalState.whitelist.length >= 4 && hasExpectedUsers,
+                            `Whitelist entries: ${finalState.whitelist.length}, Users: [${finalState.whitelist.join(', ')}]\nExpected: [${expectedUsers.join(', ')}]`
+                        );
+                    } catch (e) {
+                        addResult('Final state consistency', false, e.toString());
+                    }
+                }, 500);
+
+            } catch (error) {
+                addResult('Test execution', false, error.toString());
+                console.error('Test error:', error);
+            }
+        }
+
+        // Run tests when page loads
+        window.addEventListener('load', runTests);
+    </script>
+</body>
+</html>

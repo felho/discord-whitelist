@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Whitelist Management System</title>
+    <style>
+        body { font-family: monospace; margin: 20px; }
+        .output { background: #f0f0f0; padding: 10px; margin: 10px 0; white-space: pre-wrap; }
+        .error { background: #ffe6e6; }
+        .success { background: #e6ffe6; }
+    </style>
+</head>
+<body>
+    <h1>Debug Test</h1>
+    <div id="output"></div>
+
+    <script src="whitelist.js"></script>
+    <script>
+        const output = document.getElementById('output');
+
+        function log(message, isError = false) {
+            const div = document.createElement('div');
+            div.className = `output ${isError ? 'error' : 'success'}`;
+            div.textContent = typeof message === 'object' ? JSON.stringify(message, null, 2) : message;
+            output.appendChild(div);
+        }
+
+        function testBasics() {
+            log('=== BASIC TESTS ===');
+
+            try {
+                log('1. window.WL exists: ' + (typeof window.WL));
+                log('2. window.WL object keys: ' + Object.keys(window.WL));
+                log('3. Version: ' + window.WL.version);
+
+                if (window.WL.system) {
+                    log('4. Storage type: ' + window.WL.system.storageType);
+                } else {
+                    log('4. system property missing', true);
+                }
+
+                log('5. Initial state: ' + JSON.stringify(window.WL.getState()));
+
+            } catch (e) {
+                log('Basic test error: ' + e.toString(), true);
+                log('Stack: ' + e.stack, true);
+            }
+        }
+
+        async function testAdvanced() {
+            log('\n=== ADVANCED TESTS ===');
+
+            try {
+                // Test adding a user
+                log('Testing addToWhitelist...');
+                const result = await window.WL.addToWhitelist('debuguser');
+                log('Add result: ' + result);
+
+                // Check if whitelisted
+                log('Testing isWhitelisted...');
+                const isWhitelisted = window.WL.whitelist.isWhitelisted('debuguser');
+                log('Is whitelisted: ' + isWhitelisted);
+
+                // Get stats
+                log('Testing stats...');
+                const stats = window.WL.whitelist.getStats();
+                log('Stats: ' + JSON.stringify(stats));
+
+                // Test collections
+                log('Testing collections...');
+                const collections = window.WL.collections.getAll();
+                log('Collections: ' + JSON.stringify(collections.map(c => c.name)));
+
+            } catch (e) {
+                log('Advanced test error: ' + e.toString(), true);
+                log('Stack: ' + e.stack, true);
+            }
+        }
+
+        // Run tests
+        window.addEventListener('load', () => {
+            testBasics();
+            setTimeout(testAdvanced, 100);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reload Persistence Test</title>
+    <style>
+        body { font-family: monospace; margin: 20px; }
+        .test { margin: 10px 0; padding: 10px; border: 1px solid #ccc; }
+        .pass { background-color: #d4edda; }
+        .fail { background-color: #f8d7da; }
+        pre { background-color: #f8f9fa; padding: 10px; white-space: pre-wrap; }
+        button { padding: 10px; margin: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Reload Persistence Test</h1>
+
+    <div>
+        <button onclick="setupTest()">1. Setup Test Data</button>
+        <button onclick="location.reload()">2. Reload Page</button>
+        <button onclick="verifyPersistence()">3. Verify Persistence</button>
+        <button onclick="clearAll()">4. Clear All Data</button>
+    </div>
+
+    <div id="results"></div>
+
+    <script src="whitelist.js"></script>
+    <script>
+        const results = document.getElementById('results');
+
+        function addResult(test, result, details = '') {
+            const div = document.createElement('div');
+            div.className = `test ${result ? 'pass' : 'fail'}`;
+            div.innerHTML = `
+                <strong>${test}</strong>: ${result ? 'PASS' : 'FAIL'}
+                ${details ? `<pre>${details}</pre>` : ''}
+            `;
+            results.appendChild(div);
+        }
+
+        function log(message) {
+            console.log('[RELOAD-TEST]', message);
+        }
+
+        async function setupTest() {
+            results.innerHTML = '';
+            log('Setting up test data...');
+
+            try {
+                // Clear existing data first
+                window.WL.clearWhitelist();
+
+                // Add test users
+                const added1 = await window.WL.addToWhitelist('persisttest1');
+                const added2 = await window.WL.addToWhitelist('persisttest2');
+                const added3 = await window.WL.addToWhitelist('persisttest3');
+
+                // Set some configuration
+                window.WL.setState({
+                    enabled: false,
+                    hardHide: true,
+                    showAllTemp: false
+                });
+
+                // Create a test collection
+                const collectionId = window.WL.collections.create('Persist Test Collection');
+
+                const state = window.WL.getState();
+                addResult('Setup Complete',
+                    added1 && added2 && added3 && state.whitelist.length === 3,
+                    `Added users: ${added1}, ${added2}, ${added3}\nState: ${JSON.stringify(state, null, 2)}\nCollection: ${collectionId}`
+                );
+
+                // Check what's actually stored
+                const storageType = window.WL.system.storageType;
+                const debugInfo = window.WL.dev.exportDebugInfo();
+
+                addResult('Storage Info',
+                    storageType !== 'memory',
+                    `Storage type: ${storageType}\nCollections: ${debugInfo.collections.length}\nConfig: ${JSON.stringify(debugInfo.config, null, 2)}`
+                );
+
+                log('Test data setup complete. Now reload the page and click "Verify Persistence"');
+
+            } catch (error) {
+                addResult('Setup Failed', false, error.toString());
+                console.error('Setup error:', error);
+            }
+        }
+
+        async function verifyPersistence() {
+            log('Verifying persistence after reload...');
+
+            try {
+                // Check if system initialized properly
+                const systemReady = typeof window.WL === 'object' && window.WL.version;
+                addResult('System Initialized', systemReady, `Version: ${window.WL.version}`);
+
+                if (!systemReady) return;
+
+                // Check storage type
+                const storageType = window.WL.system.storageType;
+                addResult('Storage Available',
+                    storageType !== 'memory',
+                    `Storage type: ${storageType}`
+                );
+
+                // Check if data persisted
+                const state = window.WL.getState();
+                const hasTestUsers = state.whitelist.includes('persisttest1') &&
+                                   state.whitelist.includes('persisttest2') &&
+                                   state.whitelist.includes('persisttest3');
+
+                addResult('Users Persisted',
+                    hasTestUsers,
+                    `Whitelist: [${state.whitelist.join(', ')}]\nEnabled: ${state.enabled}\nHardHide: ${state.hardHide}`
+                );
+
+                // Check collections
+                const collections = window.WL.collections.getAll();
+                const hasTestCollection = collections.some(c => c.name === 'Persist Test Collection');
+
+                addResult('Collections Persisted',
+                    hasTestCollection,
+                    `Collections: ${collections.map(c => c.name).join(', ')}`
+                );
+
+                // Check individual API functions
+                const isWhitelisted = window.WL.whitelist.isWhitelisted('persisttest1');
+                addResult('API Functions Work',
+                    isWhitelisted,
+                    `isWhitelisted('persisttest1'): ${isWhitelisted}`
+                );
+
+                // Check stats
+                const stats = window.WL.whitelist.getStats();
+                addResult('Stats Available',
+                    typeof stats === 'object' && stats.total >= 3,
+                    JSON.stringify(stats, null, 2)
+                );
+
+                log('Persistence verification complete');
+
+            } catch (error) {
+                addResult('Verification Failed', false, error.toString());
+                console.error('Verification error:', error);
+            }
+        }
+
+        function clearAll() {
+            try {
+                window.WL.dev.clearAllData();
+            } catch (error) {
+                log('Clear failed: ' + error.toString());
+                // Manual cleanup
+                if (window.localStorage) {
+                    window.localStorage.clear();
+                }
+                location.reload();
+            }
+        }
+
+        // Auto-verify on page load if data exists
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                const state = window.WL.getState();
+                if (state.whitelist.length > 0) {
+                    log('Found existing data, auto-verifying...');
+                    verifyPersistence();
+                } else {
+                    addResult('Initial Load', true, 'No existing data found. Click "Setup Test Data" to begin.');
+                }
+            }, 100);
+        });
+    </script>
+</body>
+</html>
