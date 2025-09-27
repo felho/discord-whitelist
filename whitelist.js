@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "v0.2.0 (Whitelist Management System)";
+  const VERSION = "v0.4.0 (User Interface Implementation)";
 
   // --- Storage adapter (prefers page localStorage, falls back to TM storage) ---
   const Storage = (() => {
@@ -1491,6 +1491,1008 @@
     }
   }
 
+  // --- UI Manager for Discord Integration ---
+  class UIManager {
+    constructor(whitelistManager, filterEngine, storageManager) {
+      this.whitelistManager = whitelistManager;
+      this.filterEngine = filterEngine;
+      this.storageManager = storageManager;
+      this.panel = null;
+      this.isVisible = false;
+      this.position = { x: 20, y: 20 };
+      this.isMinimized = false;
+      this.activeCollectionId = null;
+      this.hasUnsavedChanges = false;
+      this.isDragging = false;
+      this.dragOffset = { x: 0, y: 0 };
+
+      // Initialize UI
+      this.initialize();
+    }
+
+    initialize() {
+      this.activeCollectionId = this.storageManager.config.activeCollection;
+
+      // Load saved position
+      if (this.storageManager.config.uiPosition) {
+        this.position = this.storageManager.config.uiPosition;
+      }
+
+      this.createPanel();
+      this.bindEvents();
+      this.applyStyles();
+
+      // Listen for collection changes
+      eventBus.on('collection:switched', (data) => {
+        this.activeCollectionId = data.newId;
+        this.updateCollectionSelector();
+        this.updateWhitelistDisplay();
+        this.updateStats();
+        this.clearUnsavedChanges();
+      });
+
+      eventBus.on('collection:created', () => {
+        this.updateCollectionSelector();
+      });
+
+      eventBus.on('collection:deleted', () => {
+        this.updateCollectionSelector();
+      });
+    }
+
+    createPanel() {
+      if (this.panel) return;
+
+      this.panel = document.createElement('div');
+      this.panel.className = 'wl-panel-container';
+      this.panel.innerHTML = `
+        <div class="wl-panel-header">
+          <div class="wl-panel-title">
+            <span class="wl-panel-icon">📝</span>
+            <span>Whitelist Control</span>
+          </div>
+          <div class="wl-panel-header-controls">
+            <select class="wl-collection-selector" title="Select Collection">
+              <!-- Populated dynamically -->
+            </select>
+            <button class="wl-panel-minimize" title="Minimize">−</button>
+            <button class="wl-panel-close" title="Hide Panel">×</button>
+          </div>
+        </div>
+
+        <div class="wl-panel-content">
+          <!-- Collection Management Section -->
+          <div class="wl-panel-section wl-collection-section">
+            <div class="wl-section-header">
+              <h3>Collection Management</h3>
+              <button class="wl-section-toggle" data-target="collection-controls">▼</button>
+            </div>
+            <div class="wl-section-content" id="collection-controls">
+              <div class="wl-collection-info">
+                <span class="wl-collection-name"></span>
+                <span class="wl-collection-meta"></span>
+              </div>
+              <div class="wl-collection-actions">
+                <button class="wl-btn wl-btn-small wl-new-collection">New Collection</button>
+                <button class="wl-btn wl-btn-small wl-rename-collection">Rename</button>
+                <button class="wl-btn wl-btn-small wl-delete-collection">Delete</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Whitelist Editor Section -->
+          <div class="wl-panel-section">
+            <div class="wl-section-header">
+              <h3>Whitelist Editor</h3>
+              <span class="wl-unsaved-indicator" style="display: none;">●</span>
+            </div>
+            <div class="wl-section-content">
+              <textarea
+                class="wl-whitelist-editor"
+                placeholder="Enter usernames (one per line)..."
+                rows="8"
+              ></textarea>
+              <div class="wl-editor-info">
+                <span class="wl-line-count">0 users</span>
+                <span class="wl-entry-limit"></span>
+              </div>
+              <div class="wl-editor-actions">
+                <button class="wl-btn wl-save-changes">Save Changes</button>
+                <button class="wl-btn wl-btn-secondary wl-clear-collection">Clear All</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Filter Controls Section -->
+          <div class="wl-panel-section">
+            <div class="wl-section-header">
+              <h3>Filter Controls</h3>
+            </div>
+            <div class="wl-section-content">
+              <div class="wl-filter-toggles">
+                <label class="wl-toggle">
+                  <input type="checkbox" class="wl-master-enable" checked>
+                  <span class="wl-toggle-slider"></span>
+                  <span class="wl-toggle-label">Enable Filtering</span>
+                </label>
+
+                <div class="wl-display-modes">
+                  <label>Display Mode:</label>
+                  <select class="wl-display-mode">
+                    <option value="normal">Normal (Collapse)</option>
+                    <option value="hard-hide">Hard Hide</option>
+                    <option value="show-all">Show All</option>
+                  </select>
+                </div>
+
+                <label class="wl-toggle">
+                  <input type="checkbox" class="wl-temp-override">
+                  <span class="wl-toggle-slider"></span>
+                  <span class="wl-toggle-label">Temporary Override</span>
+                </label>
+              </div>
+
+              <div class="wl-filter-status">
+                <span class="wl-status-indicator"></span>
+                <span class="wl-status-text">Filtering Active</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Statistics Section -->
+          <div class="wl-panel-section">
+            <div class="wl-section-header">
+              <h3>Statistics</h3>
+            </div>
+            <div class="wl-section-content">
+              <div class="wl-stats-grid">
+                <div class="wl-stat-item">
+                  <span class="wl-stat-label">Current Collection:</span>
+                  <span class="wl-stat-value wl-current-collection">-</span>
+                </div>
+                <div class="wl-stat-item">
+                  <span class="wl-stat-label">Users:</span>
+                  <span class="wl-stat-value wl-user-count">0</span>
+                </div>
+                <div class="wl-stat-item">
+                  <span class="wl-stat-label">Messages Filtered:</span>
+                  <span class="wl-stat-value wl-filtered-count">0</span>
+                </div>
+                <div class="wl-stat-item">
+                  <span class="wl-stat-label">Total Collections:</span>
+                  <span class="wl-stat-value wl-collection-count">0</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Actions Section -->
+          <div class="wl-panel-section">
+            <div class="wl-section-header">
+              <h3>Actions</h3>
+            </div>
+            <div class="wl-section-content">
+              <div class="wl-actions-grid">
+                <button class="wl-btn wl-import-data">Import</button>
+                <button class="wl-btn wl-export-data">Export</button>
+                <button class="wl-btn wl-btn-secondary wl-reset-data">Reset</button>
+                <button class="wl-btn wl-btn-secondary wl-help">Help</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Inject into Discord
+      document.body.appendChild(this.panel);
+
+      // Set initial position
+      this.panel.style.left = this.position.x + 'px';
+      this.panel.style.top = this.position.y + 'px';
+
+      // Initialize state
+      this.updateCollectionSelector();
+      this.updateWhitelistDisplay();
+      this.updateFilterStatus();
+      this.updateStats();
+    }
+
+    bindEvents() {
+      if (!this.panel) return;
+
+      // Header controls
+      this.panel.querySelector('.wl-panel-close').addEventListener('click', () => this.hidePanel());
+      this.panel.querySelector('.wl-panel-minimize').addEventListener('click', () => this.toggleMinimize());
+
+      // Make draggable
+      const header = this.panel.querySelector('.wl-panel-header');
+      header.addEventListener('mousedown', (e) => this.startDrag(e));
+
+      // Collection selector
+      const selector = this.panel.querySelector('.wl-collection-selector');
+      selector.addEventListener('change', (e) => this.handleCollectionSwitch(e.target.value));
+
+      // Collection management
+      this.panel.querySelector('.wl-new-collection').addEventListener('click', () => this.createNewCollection());
+      this.panel.querySelector('.wl-rename-collection').addEventListener('click', () => this.renameCollection());
+      this.panel.querySelector('.wl-delete-collection').addEventListener('click', () => this.deleteCollection());
+
+      // Whitelist editor
+      const editor = this.panel.querySelector('.wl-whitelist-editor');
+      editor.addEventListener('input', () => this.handleWhitelistChange());
+
+      // Editor actions
+      this.panel.querySelector('.wl-save-changes').addEventListener('click', () => this.saveChanges());
+      this.panel.querySelector('.wl-clear-collection').addEventListener('click', () => this.clearCurrentCollection());
+
+      // Filter controls
+      this.panel.querySelector('.wl-master-enable').addEventListener('change', (e) => {
+        this.storageManager.config.globalSettings.enabled = e.target.checked;
+        this.storageManager.saveConfig();
+        this.updateFilterStatus();
+        if (this.filterEngine.isEnabled()) {
+          this.filterEngine.refreshAllMessages();
+        }
+      });
+
+      this.panel.querySelector('.wl-display-mode').addEventListener('change', (e) => {
+        const mode = e.target.value;
+        this.storageManager.config.globalSettings.hardHide = mode === 'hard-hide';
+        this.storageManager.config.globalSettings.showAllTemp = mode === 'show-all';
+        this.storageManager.saveConfig();
+        this.updateFilterStatus();
+        if (this.filterEngine.isEnabled()) {
+          this.filterEngine.refreshAllMessages();
+        }
+      });
+
+      this.panel.querySelector('.wl-temp-override').addEventListener('change', (e) => {
+        this.storageManager.config.globalSettings.showAllTemp = e.target.checked;
+        this.storageManager.saveConfig();
+        this.updateFilterStatus();
+        if (this.filterEngine.isEnabled()) {
+          this.filterEngine.refreshAllMessages();
+        }
+      });
+
+      // Section toggles
+      this.panel.querySelectorAll('.wl-section-toggle').forEach(toggle => {
+        toggle.addEventListener('click', (e) => {
+          const target = e.target.dataset.target;
+          const content = this.panel.querySelector('#' + target);
+          const isExpanded = content.style.display !== 'none';
+          content.style.display = isExpanded ? 'none' : 'block';
+          e.target.textContent = isExpanded ? '▶' : '▼';
+        });
+      });
+
+      // Import/Export
+      this.panel.querySelector('.wl-import-data').addEventListener('click', () => this.showImportDialog());
+      this.panel.querySelector('.wl-export-data').addEventListener('click', () => this.showExportDialog());
+
+      // Global drag handlers
+      document.addEventListener('mousemove', (e) => this.handleDrag(e));
+      document.addEventListener('mouseup', () => this.stopDrag());
+
+      // Keyboard shortcuts
+      document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey && e.shiftKey && e.key === 'W') {
+          e.preventDefault();
+          this.togglePanel();
+        }
+      });
+    }
+
+    // Panel visibility management
+    showPanel() {
+      if (!this.panel) this.createPanel();
+      this.panel.style.display = 'block';
+      this.isVisible = true;
+    }
+
+    hidePanel() {
+      if (this.panel) {
+        this.panel.style.display = 'none';
+      }
+      this.isVisible = false;
+    }
+
+    togglePanel() {
+      if (this.isVisible) {
+        this.hidePanel();
+      } else {
+        this.showPanel();
+      }
+    }
+
+    toggleMinimize() {
+      const content = this.panel.querySelector('.wl-panel-content');
+      const button = this.panel.querySelector('.wl-panel-minimize');
+
+      if (this.isMinimized) {
+        content.style.display = 'block';
+        button.textContent = '−';
+        this.isMinimized = false;
+      } else {
+        content.style.display = 'none';
+        button.textContent = '+';
+        this.isMinimized = true;
+      }
+    }
+
+    // Drag functionality
+    startDrag(e) {
+      this.isDragging = true;
+      this.panel.classList.add('wl-panel-dragging');
+      const rect = this.panel.getBoundingClientRect();
+      this.dragOffset = {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
+      };
+    }
+
+    handleDrag(e) {
+      if (!this.isDragging) return;
+
+      const x = e.clientX - this.dragOffset.x;
+      const y = e.clientY - this.dragOffset.y;
+
+      // Keep panel within viewport
+      const maxX = window.innerWidth - this.panel.offsetWidth;
+      const maxY = window.innerHeight - this.panel.offsetHeight;
+
+      this.position.x = Math.max(0, Math.min(x, maxX));
+      this.position.y = Math.max(0, Math.min(y, maxY));
+
+      this.panel.style.left = this.position.x + 'px';
+      this.panel.style.top = this.position.y + 'px';
+    }
+
+    stopDrag() {
+      if (this.isDragging) {
+        this.isDragging = false;
+        this.panel.classList.remove('wl-panel-dragging');
+        // Save position to storage
+        this.storageManager.config.uiPosition = this.position;
+        this.storageManager.saveConfig();
+      }
+    }
+
+    // Collection management
+    updateCollectionSelector() {
+      const selector = this.panel.querySelector('.wl-collection-selector');
+      const collections = this.storageManager.getAllCollections();
+
+      selector.innerHTML = '';
+      collections.forEach(collection => {
+        const option = document.createElement('option');
+        option.value = collection.id;
+        option.textContent = `${collection.name} (${collection.getSize()})`;
+        if (collection.id === this.activeCollectionId) {
+          option.selected = true;
+        }
+        selector.appendChild(option);
+      });
+
+      this.updateCollectionInfo();
+    }
+
+    updateCollectionInfo() {
+      const collection = this.storageManager.getActiveCollection();
+      if (!collection) return;
+
+      const nameEl = this.panel.querySelector('.wl-collection-name');
+      const metaEl = this.panel.querySelector('.wl-collection-meta');
+
+      nameEl.textContent = collection.name;
+      metaEl.textContent = `${collection.getSize()} users • Created \${collection.metadata.created.toLocaleDateString()}`;
+
+      // Update action button states
+      const isDefault = collection.id === 'default';
+      this.panel.querySelector('.wl-rename-collection').disabled = isDefault;
+      this.panel.querySelector('.wl-delete-collection').disabled = isDefault;
+    }
+
+    handleCollectionSwitch(newId) {
+      if (newId === this.activeCollectionId) return;
+
+      if (this.hasUnsavedChanges) {
+        if (!this.showConfirmationDialog('You have unsaved changes. Switch collection anyway?')) {
+          // Reset selector to current collection
+          this.panel.querySelector('.wl-collection-selector').value = this.activeCollectionId;
+          return;
+        }
+      }
+
+      try {
+        this.storageManager.switchActiveCollection(newId);
+        // Events will handle the UI updates
+      } catch (error) {
+        console.error('[WL] Collection switch failed:', error);
+        this.showError('Failed to switch collection: ' + error.message);
+      }
+    }
+
+    createNewCollection() {
+      const name = this.showPromptDialog('Enter collection name:', '');
+      if (!name || !name.trim()) return;
+
+      try {
+        const id = this.storageManager.createCollection(name.trim());
+        this.storageManager.switchActiveCollection(id);
+        log('Created new collection:', name);
+      } catch (error) {
+        console.error('[WL] Collection creation failed:', error);
+        this.showError('Failed to create collection: ' + error.message);
+      }
+    }
+
+    renameCollection() {
+      const collection = this.storageManager.getActiveCollection();
+      if (!collection || collection.id === 'default') return;
+
+      const newName = this.showPromptDialog('Enter new collection name:', collection.name);
+      if (!newName || !newName.trim() || newName.trim() === collection.name) return;
+
+      try {
+        collection.name = newName.trim();
+        collection.metadata.modified = new Date();
+        this.storageManager.saveCollections();
+        this.updateCollectionSelector();
+        this.updateStats();
+        log('Renamed collection to:', newName);
+      } catch (error) {
+        console.error('[WL] Collection rename failed:', error);
+        this.showError('Failed to rename collection: ' + error.message);
+      }
+    }
+
+    deleteCollection() {
+      const collection = this.storageManager.getActiveCollection();
+      if (!collection || collection.id === 'default') return;
+
+      const confirmMsg = `Delete collection "${collection.name}" with ${collection.getSize()} users?`;
+      if (!this.showConfirmationDialog(confirmMsg)) return;
+
+      try {
+        this.storageManager.deleteCollection(collection.id);
+        log('Deleted collection:', collection.name);
+      } catch (error) {
+        console.error('[WL] Collection deletion failed:', error);
+        this.showError('Failed to delete collection: ' + error.message);
+      }
+    }
+
+    // Whitelist management
+    updateWhitelistDisplay() {
+      const collection = this.storageManager.getActiveCollection();
+      if (!collection) return;
+
+      const editor = this.panel.querySelector('.wl-whitelist-editor');
+      const usernames = Array.from(collection.entries.values()).map(entry => entry.username);
+      editor.value = usernames.join('\n');
+
+      this.updateEditorInfo();
+      this.clearUnsavedChanges();
+    }
+
+    updateEditorInfo() {
+      const editor = this.panel.querySelector('.wl-whitelist-editor');
+      const lines = editor.value.split('\n').filter(line => line.trim()).length;
+      const maxEntries = this.storageManager.config.globalSettings.maxEntries;
+
+      this.panel.querySelector('.wl-line-count').textContent = `${lines} users`;
+      this.panel.querySelector('.wl-entry-limit').textContent = `(max: ${maxEntries})`;
+    }
+
+    handleWhitelistChange() {
+      this.markUnsavedChanges();
+      this.updateEditorInfo();
+    }
+
+    saveChanges() {
+      const editor = this.panel.querySelector('.wl-whitelist-editor');
+      const collection = this.storageManager.getActiveCollection();
+      if (!collection) return;
+
+      try {
+        // Parse usernames from textarea
+        const usernames = editor.value
+          .split('\n')
+          .map(line => line.trim())
+          .filter(line => line);
+
+        // Clear current collection
+        collection.entries.clear();
+
+        // Add new usernames
+        let added = 0;
+        const maxEntries = this.storageManager.config.globalSettings.maxEntries;
+
+        for (const username of usernames) {
+          if (added >= maxEntries) {
+            this.showError(`Maximum ${maxEntries} entries allowed per collection`);
+            break;
+          }
+
+          try {
+            if (collection.addEntry(username, { source: 'manual' })) {
+              added++;
+            }
+          } catch (error) {
+            console.warn('[WL] Invalid username:', username, error.message);
+          }
+        }
+
+        // Save changes
+        this.storageManager.saveCollections();
+        this.clearUnsavedChanges();
+        this.updateStats();
+
+        log(`Saved ${added} usernames to collection:`, collection.name);
+
+        // Refresh filtering
+        if (this.filterEngine.isEnabled()) {
+          this.filterEngine.refreshAllMessages();
+        }
+
+      } catch (error) {
+        console.error('[WL] Save failed:', error);
+        this.showError('Failed to save changes: ' + error.message);
+      }
+    }
+
+    clearCurrentCollection() {
+      const collection = this.storageManager.getActiveCollection();
+      if (!collection) return;
+
+      if (!this.showConfirmationDialog(`Clear all ${collection.getSize()} users from "${collection.name}"?`)) {
+        return;
+      }
+
+      collection.entries.clear();
+      collection.metadata.modified = new Date();
+      this.storageManager.saveCollections();
+      this.updateWhitelistDisplay();
+      this.updateStats();
+
+      log('Cleared collection:', collection.name);
+    }
+
+    // UI state management
+    markUnsavedChanges() {
+      this.hasUnsavedChanges = true;
+      this.panel.querySelector('.wl-unsaved-indicator').style.display = 'inline';
+    }
+
+    clearUnsavedChanges() {
+      this.hasUnsavedChanges = false;
+      this.panel.querySelector('.wl-unsaved-indicator').style.display = 'none';
+    }
+
+    // Status updates
+    updateFilterStatus() {
+      const config = this.storageManager.config.globalSettings;
+      const statusEl = this.panel.querySelector('.wl-status-indicator');
+      const textEl = this.panel.querySelector('.wl-status-text');
+
+      // Update toggles
+      this.panel.querySelector('.wl-master-enable').checked = config.enabled;
+      this.panel.querySelector('.wl-temp-override').checked = config.showAllTemp;
+
+      // Update display mode
+      let mode = 'normal';
+      if (config.hardHide) mode = 'hard-hide';
+      if (config.showAllTemp) mode = 'show-all';
+      this.panel.querySelector('.wl-display-mode').value = mode;
+
+      // Update status indicator
+      if (!config.enabled) {
+        statusEl.className = 'wl-status-indicator wl-status-disabled';
+        textEl.textContent = 'Filtering Disabled';
+      } else if (config.showAllTemp) {
+        statusEl.className = 'wl-status-indicator wl-status-temp';
+        textEl.textContent = 'Show All (Temporary)';
+      } else if (config.hardHide) {
+        statusEl.className = 'wl-status-indicator wl-status-hard';
+        textEl.textContent = 'Hard Hide Mode';
+      } else {
+        statusEl.className = 'wl-status-indicator wl-status-active';
+        textEl.textContent = 'Filtering Active';
+      }
+    }
+
+    updateStats() {
+      const collection = this.storageManager.getActiveCollection();
+      const allCollections = this.storageManager.getAllCollections();
+      const filterStats = this.filterEngine.getStats();
+
+      this.panel.querySelector('.wl-current-collection').textContent = collection?.name || '-';
+      this.panel.querySelector('.wl-user-count').textContent = collection?.getSize() || 0;
+      this.panel.querySelector('.wl-filtered-count').textContent = filterStats.messagesProcessed || 0;
+      this.panel.querySelector('.wl-collection-count').textContent = allCollections.length;
+    }
+
+    // Dialog utilities
+    showConfirmationDialog(message) {
+      return confirm(message);
+    }
+
+    showPromptDialog(message, defaultValue = '') {
+      return prompt(message, defaultValue);
+    }
+
+    showError(message) {
+      console.error('[WL]', message);
+      alert('Error: ' + message);
+    }
+
+    showImportDialog() {
+      // TODO: Implement import dialog
+      this.showError('Import functionality not yet implemented');
+    }
+
+    showExportDialog() {
+      // TODO: Implement export dialog
+      this.showError('Export functionality not yet implemented');
+    }
+
+    // CSS styles
+    applyStyles() {
+      if (document.querySelector('#wl-panel-styles')) return;
+
+      const style = document.createElement('style');
+      style.id = 'wl-panel-styles';
+      style.textContent = `
+        .wl-panel-container {
+          position: fixed;
+          width: 320px;
+          background: #2f3136;
+          border: 1px solid #202225;
+          border-radius: 8px;
+          box-shadow: 0 8px 16px rgba(0, 0, 0, 0.24);
+          z-index: 10000;
+          font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+          font-size: 14px;
+          color: #dcddde;
+          display: none;
+        }
+
+        .wl-panel-header {
+          background: #36393f;
+          padding: 12px 16px;
+          border-radius: 8px 8px 0 0;
+          border-bottom: 1px solid #202225;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          cursor: move;
+          user-select: none;
+        }
+
+        .wl-panel-title {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-weight: 600;
+          flex: 1;
+        }
+
+        .wl-panel-icon {
+          font-size: 16px;
+        }
+
+        .wl-panel-header-controls {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .wl-collection-selector {
+          background: #40444b;
+          border: 1px solid #202225;
+          border-radius: 4px;
+          color: #dcddde;
+          padding: 4px 8px;
+          font-size: 12px;
+          min-width: 120px;
+        }
+
+        .wl-panel-minimize,
+        .wl-panel-close {
+          background: none;
+          border: none;
+          color: #b9bbbe;
+          font-size: 16px;
+          width: 24px;
+          height: 24px;
+          border-radius: 4px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .wl-panel-minimize:hover,
+        .wl-panel-close:hover {
+          background: #40444b;
+          color: #fff;
+        }
+
+        .wl-panel-content {
+          max-height: 600px;
+          overflow-y: auto;
+        }
+
+        .wl-panel-section {
+          border-bottom: 1px solid #202225;
+          padding: 16px;
+        }
+
+        .wl-panel-section:last-child {
+          border-bottom: none;
+        }
+
+        .wl-section-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 12px;
+        }
+
+        .wl-section-header h3 {
+          margin: 0;
+          font-size: 14px;
+          font-weight: 600;
+          color: #fff;
+        }
+
+        .wl-section-toggle {
+          background: none;
+          border: none;
+          color: #b9bbbe;
+          cursor: pointer;
+          font-size: 12px;
+        }
+
+        .wl-unsaved-indicator {
+          color: #faa61a;
+          font-size: 16px;
+          margin-left: 8px;
+        }
+
+        .wl-collection-info {
+          background: #40444b;
+          padding: 8px 12px;
+          border-radius: 4px;
+          margin-bottom: 8px;
+        }
+
+        .wl-collection-name {
+          font-weight: 600;
+          display: block;
+        }
+
+        .wl-collection-meta {
+          font-size: 12px;
+          color: #b9bbbe;
+        }
+
+        .wl-collection-actions {
+          display: flex;
+          gap: 4px;
+          flex-wrap: wrap;
+        }
+
+        .wl-whitelist-editor {
+          width: 100%;
+          background: #40444b;
+          border: 1px solid #202225;
+          border-radius: 4px;
+          color: #dcddde;
+          padding: 8px;
+          font-family: 'Consolas', 'Monaco', monospace;
+          font-size: 13px;
+          resize: vertical;
+          margin-bottom: 8px;
+        }
+
+        .wl-whitelist-editor:focus {
+          outline: none;
+          border-color: #7289da;
+        }
+
+        .wl-editor-info {
+          display: flex;
+          justify-content: space-between;
+          font-size: 12px;
+          color: #b9bbbe;
+          margin-bottom: 8px;
+        }
+
+        .wl-editor-actions,
+        .wl-actions-grid {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
+        .wl-btn {
+          background: #7289da;
+          border: none;
+          border-radius: 4px;
+          color: #fff;
+          padding: 6px 12px;
+          font-size: 12px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: background 0.2s;
+        }
+
+        .wl-btn:hover {
+          background: #677bc4;
+        }
+
+        .wl-btn:disabled {
+          background: #4f545c;
+          color: #72767d;
+          cursor: not-allowed;
+        }
+
+        .wl-btn-secondary {
+          background: #4f545c;
+        }
+
+        .wl-btn-secondary:hover {
+          background: #5d6269;
+        }
+
+        .wl-btn-small {
+          padding: 4px 8px;
+          font-size: 11px;
+        }
+
+        .wl-filter-toggles {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .wl-toggle {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          cursor: pointer;
+        }
+
+        .wl-toggle input[type="checkbox"] {
+          display: none;
+        }
+
+        .wl-toggle-slider {
+          width: 40px;
+          height: 20px;
+          background: #72767d;
+          border-radius: 10px;
+          position: relative;
+          transition: background 0.2s;
+        }
+
+        .wl-toggle-slider::before {
+          content: '';
+          position: absolute;
+          top: 2px;
+          left: 2px;
+          width: 16px;
+          height: 16px;
+          background: #fff;
+          border-radius: 50%;
+          transition: transform 0.2s;
+        }
+
+        .wl-toggle input:checked + .wl-toggle-slider {
+          background: #7289da;
+        }
+
+        .wl-toggle input:checked + .wl-toggle-slider::before {
+          transform: translateX(20px);
+        }
+
+        .wl-display-modes {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .wl-display-modes select {
+          background: #40444b;
+          border: 1px solid #202225;
+          border-radius: 4px;
+          color: #dcddde;
+          padding: 4px 8px;
+          font-size: 12px;
+        }
+
+        .wl-filter-status {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-top: 12px;
+          padding: 8px;
+          background: #40444b;
+          border-radius: 4px;
+        }
+
+        .wl-status-indicator {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+        }
+
+        .wl-status-active {
+          background: #43b581;
+        }
+
+        .wl-status-disabled {
+          background: #f04747;
+        }
+
+        .wl-status-temp {
+          background: #faa61a;
+        }
+
+        .wl-status-hard {
+          background: #7289da;
+        }
+
+        .wl-stats-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 8px;
+        }
+
+        .wl-stat-item {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+
+        .wl-stat-label {
+          font-size: 11px;
+          color: #b9bbbe;
+          text-transform: uppercase;
+          font-weight: 600;
+        }
+
+        .wl-stat-value {
+          font-size: 14px;
+          font-weight: 600;
+          color: #fff;
+        }
+
+        .wl-panel-dragging {
+          opacity: 0.9;
+          pointer-events: none;
+        }
+
+        /* Animations */
+        .wl-panel-container {
+          animation: wl-panel-fadein 0.2s ease-out;
+        }
+
+        @keyframes wl-panel-fadein {
+          from { opacity: 0; transform: translateY(-10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `;
+
+      document.head.appendChild(style);
+    }
+  }
+
+  // Initialize UI Manager
+  const uiManager = new UIManager(whitelistManager, filterEngine, storageManager);
+
   // --- Enhanced Public API (exposed on window for dev/testing) ---
   const API = {
     version: VERSION,
@@ -1584,6 +2586,15 @@
       isEnabled: () => filterEngine.isEnabled(),
     },
 
+    // User Interface
+    ui: {
+      manager: uiManager,
+      show: () => uiManager.showPanel(),
+      hide: () => uiManager.hidePanel(),
+      toggle: () => uiManager.togglePanel(),
+      isVisible: () => uiManager.isVisible,
+    },
+
     // Developer utilities
     dev: {
       rebuildCache: () => whitelistManager.rebuildLookupCache(),
@@ -1631,6 +2642,7 @@
       searchManager,
       dataManager,
       filterEngine,
+      uiManager,
       eventBus,
       Storage,
     };
