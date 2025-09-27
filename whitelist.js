@@ -711,16 +711,714 @@
     }
   }
 
+  // --- Message Filtering Engine ---
+
+  // Discord DOM selectors for message detection
+  const MESSAGE_SELECTORS = {
+    messageContainer: 'li[id^="chat-messages-"], li.message',
+    messageList: '[data-list-id^="chat-messages"]',
+    authorElement: '[class*="username"]',
+    messageContent: '[id^="message-content-"]',
+    replyAuthor: '[class*="repliedTextPreview"] [class*="username"]',
+    systemMessage: '[class*="systemMessage"]'
+  };
+
+  // CSS classes for filtering modes
+  const FILTER_CLASSES = {
+    hidden: 'wl-hidden',
+    collapsed: 'wl-collapsed',
+    placeholder: 'wl-placeholder',
+    indicator: 'wl-filtered-indicator'
+  };
+
+  // Inject CSS styles for filtering
+  function injectFilterStyles() {
+    const styleId = 'whitelist-filter-styles';
+    if (document.getElementById(styleId)) return; // Already injected
+
+    const styles = `
+      .${FILTER_CLASSES.hidden} {
+        display: none !important;
+      }
+
+      .${FILTER_CLASSES.collapsed} {
+        opacity: 0.3;
+        background: rgba(114, 137, 218, 0.1);
+        border-left: 3px solid #7289da;
+        margin: 2px 0;
+        transition: all 0.2s ease;
+      }
+
+      .${FILTER_CLASSES.collapsed}:hover {
+        opacity: 1;
+        background: rgba(114, 137, 218, 0.2);
+      }
+
+      .${FILTER_CLASSES.placeholder} {
+        padding: 8px 16px;
+        font-size: 12px;
+        color: #72767d;
+        font-style: italic;
+        cursor: pointer;
+        user-select: none;
+      }
+
+      .${FILTER_CLASSES.indicator} {
+        position: relative;
+      }
+
+      .${FILTER_CLASSES.indicator}::before {
+        content: "●";
+        position: absolute;
+        left: -10px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #7289da;
+        font-size: 8px;
+      }
+    `;
+
+    const styleElement = document.createElement('style');
+    styleElement.id = styleId;
+    styleElement.textContent = styles;
+    document.head.appendChild(styleElement);
+    log("Filter styles injected");
+  }
+
+  // MessageObserver class for detecting Discord messages
+  class MessageObserver {
+    constructor(filterEngine) {
+      this.filterEngine = filterEngine;
+      this.observer = null;
+      this.debounceTimer = null;
+      this.isObserving = false;
+      this.pendingMutations = [];
+      this.debounceMs = 50;
+    }
+
+    start() {
+      if (this.isObserving) return;
+
+      try {
+        const targetNode = document.querySelector('#app-mount') || document.body;
+
+        this.observer = new MutationObserver((mutations) => {
+          this.handleMutations(mutations);
+        });
+
+        this.observer.observe(targetNode, {
+          childList: true,
+          subtree: true,
+          attributes: false
+        });
+
+        this.isObserving = true;
+        log("MessageObserver started");
+
+        // Process existing messages
+        this.processExistingMessages();
+      } catch (e) {
+        console.error("[WL] Failed to start MessageObserver:", e);
+      }
+    }
+
+    stop() {
+      if (!this.isObserving) return;
+
+      try {
+        if (this.observer) {
+          this.observer.disconnect();
+          this.observer = null;
+        }
+
+        if (this.debounceTimer) {
+          clearTimeout(this.debounceTimer);
+          this.debounceTimer = null;
+        }
+
+        this.isObserving = false;
+        this.pendingMutations = [];
+        log("MessageObserver stopped");
+      } catch (e) {
+        console.error("[WL] Failed to stop MessageObserver:", e);
+      }
+    }
+
+    handleMutations(mutations) {
+      // Add to pending mutations
+      this.pendingMutations.push(...mutations);
+
+      // Debounce processing
+      if (this.debounceTimer) {
+        clearTimeout(this.debounceTimer);
+      }
+
+      this.debounceTimer = setTimeout(() => {
+        this.processPendingMutations();
+      }, this.debounceMs);
+    }
+
+    processPendingMutations() {
+      const mutations = [...this.pendingMutations];
+      this.pendingMutations = [];
+
+      const messagesToProcess = new Set();
+
+      try {
+        mutations.forEach(mutation => {
+          mutation.addedNodes.forEach(node => {
+            if (node.nodeType === Node.ELEMENT_NODE) {
+              // Direct message container
+              if (this.isMessageContainer(node)) {
+                messagesToProcess.add(node);
+              }
+
+              // Search for message containers within added nodes
+              const messageContainers = node.querySelectorAll?.(MESSAGE_SELECTORS.messageContainer);
+              if (messageContainers) {
+                messageContainers.forEach(container => messagesToProcess.add(container));
+              }
+            }
+          });
+        });
+
+        // Process unique messages in batch
+        if (messagesToProcess.size > 0) {
+          this.filterEngine.processMessages(Array.from(messagesToProcess));
+        }
+      } catch (e) {
+        console.error("[WL] Error processing mutations:", e);
+      }
+    }
+
+    processExistingMessages() {
+      try {
+        const existingMessages = document.querySelectorAll(MESSAGE_SELECTORS.messageContainer);
+        log(`processExistingMessages: Found ${existingMessages.length} messages with selector "${MESSAGE_SELECTORS.messageContainer}"`);
+
+        // Debug: try alternative selectors
+        const altMessages = document.querySelectorAll('li.message');
+        log(`processExistingMessages: Found ${altMessages.length} messages with selector "li.message"`);
+
+        if (existingMessages.length > 0) {
+          log(`Processing ${existingMessages.length} existing messages`);
+          this.filterEngine.processMessages(Array.from(existingMessages));
+        } else if (altMessages.length > 0) {
+          log(`Using alternative selector - processing ${altMessages.length} existing messages`);
+          this.filterEngine.processMessages(Array.from(altMessages));
+        }
+      } catch (e) {
+        console.error("[WL] Error processing existing messages:", e);
+      }
+    }
+
+    isMessageContainer(element) {
+      return element.matches && (
+        element.matches('li[id^="chat-messages-"]') ||
+        element.matches('li.message')
+      );
+    }
+  }
+
+  // FilterEngine class for applying whitelist-based filtering
+  class FilterEngine {
+    constructor(whitelistManager, storageManager) {
+      this.whitelist = whitelistManager;
+      this.storage = storageManager;
+      this.observer = new MessageObserver(this);
+      this.isInitialized = false;
+      this.messageCache = new Map(); // Cache filtering results
+      this.stats = {
+        processed: 0,
+        filtered: 0,
+        whitelisted: 0
+      };
+    }
+
+    initialize() {
+      if (this.isInitialized) return;
+
+      try {
+        // Inject CSS styles
+        injectFilterStyles();
+
+        // Listen for whitelist changes
+        eventBus.on('whitelist:user_added', () => this.refreshAllMessages());
+        eventBus.on('whitelist:user_removed', () => this.refreshAllMessages());
+        eventBus.on('whitelist:cleared', () => this.refreshAllMessages());
+        eventBus.on('collection:switched', () => this.refreshAllMessages());
+
+        // Start observing
+        this.observer.start();
+
+        this.isInitialized = true;
+        log("FilterEngine initialized");
+      } catch (e) {
+        console.error("[WL] Failed to initialize FilterEngine:", e);
+      }
+    }
+
+    shutdown() {
+      if (!this.isInitialized) return;
+
+      try {
+        this.observer.stop();
+        this.clearAllFiltering();
+        this.messageCache.clear();
+        this.isInitialized = false;
+        log("FilterEngine shutdown");
+      } catch (e) {
+        console.error("[WL] Error shutting down FilterEngine:", e);
+      }
+    }
+
+    processMessages(messageElements) {
+      if (!this.isEnabled()) return;
+
+      try {
+        const config = this.storage.config.globalSettings;
+        const batchSize = 20; // Process in smaller batches for performance
+
+        for (let i = 0; i < messageElements.length; i += batchSize) {
+          const batch = messageElements.slice(i, i + batchSize);
+          batch.forEach(messageElement => {
+            this.filterMessage(messageElement);
+          });
+
+          // Yield control to prevent blocking
+          if (i + batchSize < messageElements.length) {
+            setTimeout(() => {}, 0);
+          }
+        }
+
+        this.stats.processed += messageElements.length;
+        log(`Processed ${messageElements.length} messages (${this.stats.processed} total)`);
+      } catch (e) {
+        console.error("[WL] Error processing message batch:", e);
+      }
+    }
+
+    filterMessage(messageElement) {
+      if (!messageElement || !this.isEnabled()) {
+        log(`filterMessage: Skipped - element: ${!!messageElement}, enabled: ${this.isEnabled()}`);
+        return;
+      }
+
+      try {
+        const messageId = messageElement.id;
+        log(`filterMessage: Processing message ${messageId}`);
+
+        // Check cache first
+        if (this.messageCache.has(messageId)) {
+          const cached = this.messageCache.get(messageId);
+          log(`filterMessage: Using cached result for ${messageId} - username: ${cached.username}, whitelisted: ${cached.isWhitelisted}`);
+          this.applyDisplayMode(messageElement, cached.isWhitelisted, cached.username);
+          return;
+        }
+
+        // Extract username
+        const username = this.extractUsername(messageElement);
+        log(`filterMessage: Extracted username: "${username}" from message ${messageId}`);
+
+        if (!username) {
+          // Keep non-user messages visible (system messages, etc.)
+          log(`filterMessage: No username found, keeping message ${messageId} visible`);
+          this.removeFilterClasses(messageElement);
+          return;
+        }
+
+        // Check whitelist
+        const isWhitelisted = this.whitelist.isWhitelisted(username);
+        log(`filterMessage: Username "${username}" is ${isWhitelisted ? 'WHITELISTED' : 'NOT WHITELISTED'}`);
+
+        // Cache result
+        this.messageCache.set(messageId, { isWhitelisted, username });
+
+        // Apply filtering
+        log(`filterMessage: Applying display mode for ${username} (whitelisted: ${isWhitelisted})`);
+        this.applyDisplayMode(messageElement, isWhitelisted, username);
+
+        // Update stats
+        if (isWhitelisted) {
+          this.stats.whitelisted++;
+        } else {
+          this.stats.filtered++;
+        }
+
+      } catch (e) {
+        console.error("[WL] Error filtering message:", e);
+        // On error, keep message visible
+        this.removeFilterClasses(messageElement);
+      }
+    }
+
+    extractUsername(messageElement) {
+      try {
+        // Try multiple selectors for different Discord message types
+        const selectors = [
+          MESSAGE_SELECTORS.authorElement,
+          MESSAGE_SELECTORS.replyAuthor,
+          '[class*="headerText"] [class*="username"]',
+          '[class*="header"] [class*="username"]'
+        ];
+
+        for (const selector of selectors) {
+          const authorElement = messageElement.querySelector(selector);
+          if (authorElement && authorElement.textContent) {
+            const username = authorElement.textContent.trim();
+            if (username && username.length > 0) {
+              return username;
+            }
+          }
+        }
+
+        // Fallback: look for any username-like text
+        const usernameElements = messageElement.querySelectorAll('[class*="username"]');
+        for (const element of usernameElements) {
+          const text = element.textContent?.trim();
+          if (text && text.length > 0 && text.length <= 32) {
+            return text;
+          }
+        }
+
+        return null;
+      } catch (e) {
+        console.error("[WL] Error extracting username:", e);
+        return null;
+      }
+    }
+
+    applyDisplayMode(messageElement, isWhitelisted, username) {
+      const config = this.storage.config.globalSettings;
+
+      // Remove all filter classes first
+      this.removeFilterClasses(messageElement);
+
+      // If showing all temporarily or globally disabled, don't filter
+      if (config.showAllTemp || !config.enabled) {
+        return;
+      }
+
+      // If whitelisted, just add indicator
+      if (isWhitelisted) {
+        messageElement.classList.add(FILTER_CLASSES.indicator);
+        return;
+      }
+
+      // Apply filtering based on mode
+      if (config.hardHide) {
+        // Hard hide mode: completely remove from DOM
+        messageElement.classList.add(FILTER_CLASSES.hidden);
+      } else {
+        // Normal mode: collapse with placeholder
+        this.applyCollapseMode(messageElement, username);
+      }
+
+      // Also apply filtering to all child elements to handle complex Discord structure
+      this.applyFilteringToChildren(messageElement, isWhitelisted);
+    }
+
+    applyCollapseMode(messageElement, username) {
+      messageElement.classList.add(FILTER_CLASSES.collapsed);
+
+      // Add click handler to expand/collapse
+      const handleClick = (e) => {
+        e.stopPropagation();
+        if (messageElement.classList.contains(FILTER_CLASSES.collapsed)) {
+          messageElement.classList.remove(FILTER_CLASSES.collapsed);
+          messageElement.style.opacity = '1';
+        } else {
+          messageElement.classList.add(FILTER_CLASSES.collapsed);
+          messageElement.style.opacity = '0.3';
+        }
+      };
+
+      // Remove existing click handlers
+      messageElement.removeEventListener('click', handleClick);
+      messageElement.addEventListener('click', handleClick);
+
+      // Add placeholder text if message is very short
+      const messageHeight = messageElement.offsetHeight;
+      if (messageHeight < 50) {
+        this.addPlaceholderText(messageElement, username);
+      }
+    }
+
+    addPlaceholderText(messageElement, username) {
+      // Check if placeholder already exists
+      if (messageElement.querySelector(`.${FILTER_CLASSES.placeholder}`)) {
+        return;
+      }
+
+      const placeholder = document.createElement('div');
+      placeholder.className = FILTER_CLASSES.placeholder;
+      placeholder.textContent = `Message from ${username} (click to expand)`;
+
+      // Insert placeholder at the beginning
+      const firstChild = messageElement.firstElementChild;
+      if (firstChild) {
+        messageElement.insertBefore(placeholder, firstChild);
+      } else {
+        messageElement.appendChild(placeholder);
+      }
+    }
+
+    applyFilteringToChildren(messageElement, isWhitelisted) {
+      if (isWhitelisted) return;
+
+      try {
+        log(`applyFilteringToChildren: Processing message ${messageElement.id}`);
+        const totalTextBefore = messageElement.textContent.length;
+
+        // NUCLEAR OPTION: Apply filtering to EVERY element with text content
+        // This brute force approach should catch everything Discord throws at us
+
+        const allElements = messageElement.querySelectorAll('*');
+        log(`Found ${allElements.length} total elements in message`);
+
+        // Apply to all elements that contain text content
+        allElements.forEach(element => {
+          if (element.textContent && element.textContent.trim().length > 0) {
+            // Skip already processed elements
+            if (!element.classList.contains('wl-filtered-child')) {
+              element.classList.add('wl-filtered-child');
+              this.applyFilterStyle(element);
+            }
+          }
+        });
+
+        // Also find ALL text nodes and filter their immediate parents
+        const walker = document.createTreeWalker(
+          messageElement,
+          NodeFilter.SHOW_TEXT,
+          {
+            acceptNode: function(node) {
+              return node.textContent.trim().length > 0 ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+            }
+          }
+        );
+
+        const textNodes = [];
+        let node;
+        while (node = walker.nextNode()) {
+          textNodes.push(node);
+        }
+
+        log(`Found ${textNodes.length} text nodes in message`);
+
+        // Apply filtering to immediate parent of every text node
+        textNodes.forEach((textNode, index) => {
+          const parent = textNode.parentElement;
+          if (parent && parent !== messageElement) {
+            if (!parent.classList.contains('wl-filtered-child')) {
+              parent.classList.add('wl-filtered-child');
+              this.applyFilterStyle(parent);
+              log(`Filtered text node ${index}: "${textNode.textContent.trim().substring(0, 30)}..."`);
+            }
+          }
+        });
+
+        // Schedule multiple re-checks to catch any dynamically added content
+        setTimeout(() => {
+          this.recheckMessage(messageElement);
+        }, 100);
+
+        // Additional recheck after 250ms for stubborn messages
+        setTimeout(() => {
+          this.recheckMessage(messageElement);
+        }, 250);
+
+        log(`applyFilteringToChildren: Completed message ${messageElement.id}, processed ${allElements.length} elements and ${textNodes.length} text nodes`);
+
+      } catch (e) {
+        console.error("[WL] Error applying filtering to children:", e);
+      }
+    }
+
+    recheckMessage(messageElement) {
+      try {
+        // Double-check for any remaining visible text content
+        const visibleElements = [];
+        const walker = document.createTreeWalker(
+          messageElement,
+          NodeFilter.SHOW_ALL,
+          {
+            acceptNode: function(node) {
+              if (node.nodeType === Node.TEXT_NODE && node.textContent.trim().length > 0) {
+                const parent = node.parentElement;
+                const computedStyle = parent ? window.getComputedStyle(parent) : null;
+
+                // Check if this text is actually visible (not hidden by our filtering)
+                if (computedStyle &&
+                    computedStyle.opacity !== '0.2' &&
+                    computedStyle.display !== 'none' &&
+                    !parent.classList.contains('wl-filtered-child')) {
+                  return NodeFilter.FILTER_ACCEPT;
+                }
+              }
+              return NodeFilter.FILTER_REJECT;
+            }
+          }
+        );
+
+        let node;
+        while (node = walker.nextNode()) {
+          visibleElements.push({
+            text: node.textContent.trim().substring(0, 50),
+            parent: node.parentElement ? {
+              tag: node.parentElement.tagName,
+              className: node.parentElement.className,
+              id: node.parentElement.id
+            } : null
+          });
+
+          // Apply emergency filtering to any remaining visible text
+          if (node.parentElement) {
+            log(`EMERGENCY FILTER: Applying to remaining visible text: "${node.textContent.trim().substring(0, 30)}..."`);
+            node.parentElement.classList.add('wl-filtered-child');
+            this.applyFilterStyle(node.parentElement);
+          }
+        }
+
+        if (visibleElements.length > 0) {
+          log(`RECHECK: Message ${messageElement.id} still has ${visibleElements.length} visible text elements:`, visibleElements);
+        }
+
+      } catch (e) {
+        console.error("[WL] Error in recheckMessage:", e);
+      }
+    }
+
+    applyFilterStyle(element) {
+      if (!element) return;
+
+      try {
+        if (this.storage.config.globalSettings.hardHide) {
+          element.style.display = 'none';
+        } else {
+          element.style.opacity = '0.2';
+          element.style.filter = 'blur(2px)';
+          element.style.pointerEvents = 'none';
+          element.style.userSelect = 'none';
+        }
+      } catch (e) {
+        console.error("[WL] Error applying filter style:", e);
+      }
+    }
+
+    removeFilterClasses(messageElement) {
+      Object.values(FILTER_CLASSES).forEach(className => {
+        messageElement.classList.remove(className);
+      });
+
+      // Remove placeholder text
+      const placeholder = messageElement.querySelector(`.${FILTER_CLASSES.placeholder}`);
+      if (placeholder) {
+        placeholder.remove();
+      }
+
+      // Reset inline styles on main element
+      messageElement.style.opacity = '';
+
+      // Reset inline styles on child elements
+      try {
+        const allChildren = messageElement.querySelectorAll('*');
+        allChildren.forEach(element => {
+          element.style.opacity = '';
+          element.style.display = '';
+          element.style.filter = '';
+          element.style.pointerEvents = '';
+          element.style.userSelect = '';
+          element.classList.remove('wl-filtered-child');
+        });
+      } catch (e) {
+        console.error("[WL] Error removing filter styles from children:", e);
+      }
+    }
+
+    refreshAllMessages() {
+      try {
+        // Clear cache
+        this.messageCache.clear();
+
+        // Re-process all visible messages
+        const allMessages = document.querySelectorAll(MESSAGE_SELECTORS.messageContainer);
+        log(`Found ${allMessages.length} messages with selector "${MESSAGE_SELECTORS.messageContainer}"`);
+
+        // Debug: try alternative selectors
+        const altMessages = document.querySelectorAll('li.message');
+        log(`Found ${altMessages.length} messages with selector "li.message"`);
+
+        const anyLi = document.querySelectorAll('li');
+        log(`Found ${anyLi.length} total li elements`);
+
+        if (allMessages.length > 0) {
+          log(`Refreshing ${allMessages.length} messages after whitelist change`);
+          this.processMessages(Array.from(allMessages));
+        } else if (altMessages.length > 0) {
+          log(`Using alternative selector - processing ${altMessages.length} messages`);
+          this.processMessages(Array.from(altMessages));
+        }
+      } catch (e) {
+        console.error("[WL] Error refreshing messages:", e);
+      }
+    }
+
+    clearAllFiltering() {
+      try {
+        const allMessages = document.querySelectorAll(MESSAGE_SELECTORS.messageContainer);
+        allMessages.forEach(message => {
+          this.removeFilterClasses(message);
+        });
+        log("Cleared all message filtering");
+      } catch (e) {
+        console.error("[WL] Error clearing filtering:", e);
+      }
+    }
+
+    isEnabled() {
+      return this.storage.config.globalSettings.enabled;
+    }
+
+    getStats() {
+      return { ...this.stats };
+    }
+
+    resetStats() {
+      this.stats = {
+        processed: 0,
+        filtered: 0,
+        whitelisted: 0
+      };
+    }
+  }
+
   // --- Initialize System ---
   const storageManager = new StorageManager();
   const whitelistManager = new WhitelistManager(storageManager);
   const searchManager = new SearchManager(whitelistManager);
   const dataManager = new DataManager(storageManager);
+  const filterEngine = new FilterEngine(whitelistManager, storageManager);
 
   // Handle collection switches
   eventBus.on('collection:switched', () => {
     whitelistManager.rebuildLookupCache();
   });
+
+  // Initialize filtering when DOM is ready
+  function initializeFiltering() {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(() => filterEngine.initialize(), 1000);
+      });
+    } else {
+      // DOM is already ready
+      setTimeout(() => filterEngine.initialize(), 1000);
+    }
+  }
+
+  // Start filtering initialization
+  initializeFiltering();
 
   // --- Legacy State Management for Backward Compatibility ---
   function getLegacyState() {
@@ -874,6 +1572,18 @@
       },
     },
 
+    // Message Filtering
+    filter: {
+      engine: filterEngine,
+      initialize: () => filterEngine.initialize(),
+      shutdown: () => filterEngine.shutdown(),
+      refresh: () => filterEngine.refreshAllMessages(),
+      clear: () => filterEngine.clearAllFiltering(),
+      getStats: () => filterEngine.getStats(),
+      resetStats: () => filterEngine.resetStats(),
+      isEnabled: () => filterEngine.isEnabled(),
+    },
+
     // Developer utilities
     dev: {
       rebuildCache: () => whitelistManager.rebuildLookupCache(),
@@ -890,6 +1600,7 @@
         config: storageManager.config,
         collections: storageManager.getAllCollections().map(c => c.toJSON()),
         stats: whitelistManager.getStats(),
+        filterStats: filterEngine.getStats(),
         timestamp: new Date(),
       }),
     },
@@ -919,6 +1630,7 @@
       whitelistManager,
       searchManager,
       dataManager,
+      filterEngine,
       eventBus,
       Storage,
     };

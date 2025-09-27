@@ -11,6 +11,16 @@ This directory contains testing files for the Whitelist Management System.
 - Browser-based testing with visual pass/fail indicators
 - Access: `https://localhost:5174/test/test-wms.html`
 
+### `test-filtering.html`
+**Message Filtering Test Suite (NEW)**
+- Interactive test environment for Milestone 1 message filtering functionality
+- Mock Discord interface with real-time filtering simulation
+- Tests all display modes: normal (collapse), hard hide, show all temporarily
+- Real-time statistics and debugging tools
+- Interactive controls for whitelist management and filtering modes
+- Generates test messages and validates filtering behavior
+- Access: `https://localhost:5174/test/test-filtering.html`
+
 ### `debug-test.html`
 **Basic Diagnostic Tool**
 - Simple diagnostic test for basic functionality
@@ -51,6 +61,7 @@ This directory contains testing files for the Whitelist Management System.
 
 ## Test Coverage
 
+### Whitelist Management System (v0.2.0)
 - ✅ Legacy API compatibility
 - ✅ Advanced API functionality
 - ✅ Storage persistence (localStorage/Tampermonkey/memory fallback)
@@ -61,3 +72,13 @@ This directory contains testing files for the Whitelist Management System.
 - ✅ Error handling
 - ✅ Bulk operations
 - ✅ Data migration
+
+### Message Filtering Foundation (v0.3.0)
+- ✅ Real-time message filtering with MutationObserver
+- ✅ Multiple display modes (normal, hard hide, show all)
+- ✅ Advanced text node processing with TreeWalker API
+- ✅ Performance optimization with debouncing and caching
+- ✅ Integration with whitelist management system
+- ✅ Comprehensive DOM processing and error handling
+- ✅ Interactive test environment with mock Discord interface
+- ✅ Real-time statistics and debugging capabilities

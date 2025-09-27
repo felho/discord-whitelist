@@ -32,7 +32,7 @@ Note: The project requires HTTPS for local development due to Discord's security
 - Provides visual feedback through a temporary badge indicator
 - Requires Tampermonkey grants: `GM_xmlhttpRequest`, `GM_addStyle`, `GM_getValue`, `GM_setValue`, `GM_deleteValue`
 
-**whitelist.js** - Advanced Whitelist Management System with:
+**whitelist.js** - Advanced Whitelist Management System with Message Filtering:
 
 - Object-oriented architecture with specialized managers (WhitelistManager, CollectionManager, etc.)
 - Multi-tier storage system (localStorage → Tampermonkey storage → memory fallback)
@@ -40,6 +40,10 @@ Note: The project requires HTTPS for local development due to Discord's security
 - Event-driven state management with real-time notifications
 - Import/export functionality (JSON, CSV, TXT formats)
 - Advanced search and analytics capabilities
+- **Message Filtering Engine**: Real-time Discord message filtering with MutationObserver
+- **Multiple Display Modes**: Normal (collapse), Hard Hide (remove), Show All (temporary override)
+- **Advanced DOM Processing**: Comprehensive text node filtering with TreeWalker API
+- **Performance Optimization**: Debounced processing, batch operations, caching
 - Comprehensive developer API exposed on `window.WL`
 - Legacy API compatibility for backward compatibility
 
@@ -113,6 +117,7 @@ The system implements a sophisticated multi-tier storage strategy:
 - `events.*` - Event system (on, off, emit for state changes)
 - `system.*` - System information (version, storageType, config)
 - `dev.*` - Developer utilities (debugging, data migration, cleanup)
+- **`filter.*`** - Message filtering controls (start, stop, refresh, clear, getStats)
 
 ## Development Workflow
 
@@ -124,18 +129,48 @@ The system implements a sophisticated multi-tier storage strategy:
 
 ## Technical Notes
 
-- **Version**: Currently v0.2.0 (Whitelist Management System)
+- **Version**: Currently v0.3.0 (Message Filtering Foundation + Whitelist Management System)
 - **Cache Busting**: Automatic timestamp parameter prevents caching issues
 - **Error Handling**: Comprehensive try-catch blocks with graceful fallback behavior
 - **Logging**: Debug logging with `[WL]` prefix, configurable via `DEBUG` constant
 - **Security**: Uses Function constructor to inject Tampermonkey APIs into execution context
 - **Storage**: Tampermonkey storage properly accessible via Function constructor injection
 - **Testing**: Comprehensive test suite available in `/test/` directory
+- **Filtering**: Real-time message processing with MutationObserver and TreeWalker API
+- **Performance**: Optimized with debouncing, batch processing, and message caching
 
-## Future Development
+## Current Development Status
 
-Based on `spec/spec.md`, the project roadmap includes:
+### ✅ Completed Milestones
 
+**Milestone 0: Whitelist Management System (v0.2.0)**
+- Advanced object-oriented architecture with specialized managers
+- Multi-collection whitelist support with metadata
+- Enhanced storage system with automatic migration
+- Import/export functionality (JSON, CSV, TXT)
+- Event-driven state management
+- Comprehensive developer API
+
+**Milestone 1: Message Filtering Foundation (v0.3.0)**
+- Real-time Discord message detection with MutationObserver
+- MessageObserver class for DOM monitoring with debouncing
+- FilterEngine class with comprehensive filtering logic
+- Multiple display modes (normal collapse, hard hide, show all)
+- Advanced text node processing with TreeWalker API
+- Performance optimization with batch processing and caching
+- Integration with existing whitelist management system
+- Comprehensive test suite in `/test/test-filtering.html`
+
+### 🚧 Next Development Phase
+
+Based on `spec/spec.md`, the upcoming roadmap includes:
+
+**Milestone 2: User Interface Implementation**
+- Floating control panel for Discord integration
+- Whitelist editing interface with real-time controls
+- Visual status indicators and statistics
+
+**Future Development**:
 - Discord bot integration with discord.js
 - Database storage (SQLite/MongoDB) replacing JSON
 - Role-based access control

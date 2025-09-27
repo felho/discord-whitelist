@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discord Whitelist Filtering Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #36393f;
+            color: #dcddde;
+        }
+
+        .test-container {
+            background: #2f3136;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .mock-discord {
+            background: #36393f;
+            border-radius: 8px;
+            padding: 10px;
+            min-height: 400px;
+        }
+
+        .message-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .message {
+            background: #40444b;
+            margin: 8px 0;
+            padding: 12px;
+            border-radius: 4px;
+            border-left: 3px solid transparent;
+        }
+
+        .username {
+            font-weight: 600;
+            color: #7289da;
+            margin-right: 8px;
+        }
+
+        .message-content {
+            color: #dcddde;
+            margin-top: 4px;
+        }
+
+        .controls {
+            background: #2f3136;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        .controls h3 {
+            margin: 0 0 15px 0;
+            color: #7289da;
+        }
+
+        .control-group {
+            margin: 10px 0;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 8px;
+            background: #40444b;
+            border: 1px solid #72767d;
+            border-radius: 4px;
+            color: #dcddde;
+            font-family: inherit;
+        }
+
+        input[type="checkbox"] {
+            margin-right: 8px;
+        }
+
+        button {
+            background: #7289da;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        button:hover {
+            background: #677bc4;
+        }
+
+        .stats {
+            background: #2f3136;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-family: monospace;
+            font-size: 14px;
+        }
+
+        .log {
+            background: #1e2124;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #40444b;
+        }
+    </style>
+</head>
+<body>
+    <div id="app-mount">
+        <h1>Discord Whitelist Filtering Test</h1>
+
+        <div class="controls">
+            <h3>Whitelist Controls</h3>
+
+            <div class="control-group">
+                <label for="add-user">Add User to Whitelist:</label>
+                <input type="text" id="add-user" placeholder="Enter username">
+                <button onclick="addUser()">Add</button>
+            </div>
+
+            <div class="control-group">
+                <label for="remove-user">Remove User from Whitelist:</label>
+                <input type="text" id="remove-user" placeholder="Enter username">
+                <button onclick="removeUser()">Remove</button>
+            </div>
+
+            <div class="control-group">
+                <label>
+                    <input type="checkbox" id="enabled" checked onchange="toggleEnabled()">
+                    Filtering Enabled
+                </label>
+                <label>
+                    <input type="checkbox" id="hard-hide" onchange="toggleHardHide()">
+                    Hard Hide Mode
+                </label>
+                <label>
+                    <input type="checkbox" id="show-all" onchange="toggleShowAll()">
+                    Show All Temporarily
+                </label>
+            </div>
+
+            <div class="control-group">
+                <button onclick="refreshMessages()">Refresh Filtering</button>
+                <button onclick="clearAllFiltering()">Clear All Filtering</button>
+                <button onclick="generateTestMessages()">Generate Test Messages</button>
+                <button onclick="clearMessages()">Clear Messages</button>
+            </div>
+        </div>
+
+        <div class="test-container">
+            <h3>Mock Discord Interface</h3>
+            <div class="mock-discord">
+                <ul class="message-list" data-list-id="chat-messages-test">
+                    <!-- Messages will be generated here -->
+                </ul>
+            </div>
+        </div>
+
+        <div class="stats" id="stats">
+            Loading stats...
+        </div>
+
+        <div class="log" id="log">
+            Test log will appear here...
+        </div>
+    </div>
+
+    <script>
+        // Mock Tampermonkey APIs for testing
+        window.GM_getValue = (key, defaultValue) => {
+            const stored = localStorage.getItem(`tm_${key}`);
+            return stored ? JSON.parse(stored) : defaultValue;
+        };
+
+        window.GM_setValue = (key, value) => {
+            localStorage.setItem(`tm_${key}`, JSON.stringify(value));
+        };
+
+        window.GM_deleteValue = (key) => {
+            localStorage.removeItem(`tm_${key}`);
+        };
+
+        // Load the whitelist script
+        const script = document.createElement('script');
+        script.src = '../whitelist.js';
+        script.onload = () => {
+            console.log('Whitelist script loaded');
+            initializeTest();
+        };
+        document.head.appendChild(script);
+
+        let messageCounter = 1;
+
+        const testUsers = [
+            'alice_wonder', 'bob_builder', 'charlie_brown', 'diana_prince',
+            'eve_online', 'frank_castle', 'grace_hopper', 'henry_ford',
+            'iris_west', 'jack_sparrow', 'karen_page', 'lois_lane'
+        ];
+
+        function initializeTest() {
+            // Wait for WL to be available
+            setTimeout(() => {
+                if (window.WL) {
+                    logMessage('✅ Whitelist system loaded successfully');
+                    logMessage(`📊 Version: ${window.WL.version}`);
+                    logMessage(`💾 Storage: ${window.WL.system.storageType}`);
+
+                    // Add some default users to whitelist
+                    window.WL.addToWhitelist('alice_wonder');
+                    window.WL.addToWhitelist('charlie_brown');
+                    window.WL.addToWhitelist('grace_hopper');
+
+                    generateTestMessages();
+                    updateStats();
+
+                    logMessage('🎯 Test environment ready!');
+                } else {
+                    logMessage('❌ Failed to load whitelist system');
+                }
+            }, 1500);
+        }
+
+        function generateTestMessages() {
+            const messageList = document.querySelector('.message-list');
+
+            // Clear existing messages
+            messageList.innerHTML = '';
+
+            // Generate diverse test messages
+            for (let i = 0; i < 15; i++) {
+                const user = testUsers[Math.floor(Math.random() * testUsers.length)];
+                const messageId = `chat-messages-${messageCounter++}-${Date.now()}`;
+
+                const message = document.createElement('li');
+                message.id = messageId;
+                message.className = 'message';
+
+                const messages = [
+                    'Hello everyone! How are you doing today?',
+                    'Just finished working on an amazing project!',
+                    'Anyone want to play some games later?',
+                    'Check out this cool link I found: https://example.com',
+                    'Good morning! ☀️',
+                    'That was an awesome stream last night!',
+                    'Does anyone know how to fix this bug?',
+                    'Thanks for the help earlier! 🙏',
+                    'I love this community! ❤️',
+                    'What are your plans for the weekend?'
+                ];
+
+                const content = messages[Math.floor(Math.random() * messages.length)];
+
+                message.innerHTML = `
+                    <div class="message-content">
+                        <span class="username" style="color: hsl(${Math.random() * 360}, 70%, 60%)">${user}</span>
+                        <div id="message-content-${messageId}">${content}</div>
+                    </div>
+                `;
+
+                messageList.appendChild(message);
+
+                // Add small delay to simulate real message flow
+                if (i % 3 === 0) {
+                    setTimeout(() => {}, 10);
+                }
+            }
+
+            logMessage(`📨 Generated ${messageList.children.length} test messages`);
+
+            // Manually trigger filtering for existing messages
+            if (window.WL && window.WL.filter) {
+                setTimeout(() => {
+                    window.WL.filter.refresh();
+                    logMessage(`🔄 Triggered filtering for generated messages`);
+                    updateStats();
+                }, 100);
+            } else {
+                updateStats();
+            }
+        }
+
+        function addUser() {
+            const input = document.getElementById('add-user');
+            const username = input.value.trim();
+
+            if (username && window.WL) {
+                window.WL.addToWhitelist(username);
+                input.value = '';
+                logMessage(`➕ Added "${username}" to whitelist`);
+
+                // Trigger immediate filtering refresh
+                if (window.WL.filter) {
+                    setTimeout(() => window.WL.filter.refresh(), 50);
+                }
+                updateStats();
+            }
+        }
+
+        function removeUser() {
+            const input = document.getElementById('remove-user');
+            const username = input.value.trim();
+
+            if (username && window.WL) {
+                window.WL.removeFromWhitelist(username);
+                input.value = '';
+                logMessage(`➖ Removed "${username}" from whitelist`);
+
+                // Trigger immediate filtering refresh
+                if (window.WL.filter) {
+                    setTimeout(() => window.WL.filter.refresh(), 50);
+                }
+                updateStats();
+            }
+        }
+
+        function toggleEnabled() {
+            const checkbox = document.getElementById('enabled');
+            if (window.WL) {
+                const state = window.WL.getState();
+                window.WL.setState({ enabled: checkbox.checked });
+                logMessage(`🔄 Filtering ${checkbox.checked ? 'enabled' : 'disabled'}`);
+
+                // Trigger immediate filtering refresh
+                if (window.WL.filter) {
+                    setTimeout(() => window.WL.filter.refresh(), 50);
+                }
+                updateStats();
+            }
+        }
+
+        function toggleHardHide() {
+            const checkbox = document.getElementById('hard-hide');
+            if (window.WL) {
+                window.WL.setState({ hardHide: checkbox.checked });
+                logMessage(`👁️ Hard hide mode ${checkbox.checked ? 'enabled' : 'disabled'}`);
+
+                // Trigger immediate filtering refresh
+                if (window.WL.filter) {
+                    setTimeout(() => window.WL.filter.refresh(), 50);
+                }
+                updateStats();
+            }
+        }
+
+        function toggleShowAll() {
+            const checkbox = document.getElementById('show-all');
+            if (window.WL) {
+                window.WL.setState({ showAllTemp: checkbox.checked });
+                logMessage(`👀 Show all temporarily ${checkbox.checked ? 'enabled' : 'disabled'}`);
+
+                // Trigger immediate filtering refresh
+                if (window.WL.filter) {
+                    setTimeout(() => window.WL.filter.refresh(), 50);
+                }
+                updateStats();
+            }
+        }
+
+        function refreshMessages() {
+            if (window.WL && window.WL.filter) {
+                window.WL.filter.refresh();
+                logMessage('🔄 Refreshed message filtering');
+                updateStats();
+            }
+        }
+
+        function clearAllFiltering() {
+            if (window.WL && window.WL.filter) {
+                window.WL.filter.clear();
+                logMessage('🧹 Cleared all filtering');
+                updateStats();
+            }
+        }
+
+        function clearMessages() {
+            const messageList = document.querySelector('.message-list');
+            messageList.innerHTML = '';
+            logMessage('🗑️ Cleared all messages');
+            updateStats();
+        }
+
+        function updateStats() {
+            if (!window.WL) return;
+
+            const state = window.WL.getState();
+            const whitelist = state.whitelist;
+            const filterStats = window.WL.filter ? window.WL.filter.getStats() : {};
+            const messageCount = document.querySelectorAll('.message').length;
+
+            const statsHtml = `
+                <strong>📊 Current State:</strong><br>
+                • Filtering Enabled: ${state.enabled ? '✅' : '❌'}<br>
+                • Hard Hide Mode: ${state.hardHide ? '✅' : '❌'}<br>
+                • Show All Temp: ${state.showAllTemp ? '✅' : '❌'}<br>
+                • Whitelist Size: ${whitelist.length}<br>
+                • Whitelisted Users: ${whitelist.join(', ') || 'None'}<br><br>
+
+                <strong>📈 Filter Statistics:</strong><br>
+                • Messages Processed: ${filterStats.processed || 0}<br>
+                • Messages Filtered: ${filterStats.filtered || 0}<br>
+                • Messages Whitelisted: ${filterStats.whitelisted || 0}<br>
+                • Total Messages: ${messageCount}<br><br>
+
+                <strong>🏗️ DOM State:</strong><br>
+                • Hidden Messages: ${document.querySelectorAll('.wl-hidden').length}<br>
+                • Collapsed Messages: ${document.querySelectorAll('.wl-collapsed').length}<br>
+                • Whitelisted Indicators: ${document.querySelectorAll('.wl-filtered-indicator').length}
+            `;
+
+            document.getElementById('stats').innerHTML = statsHtml;
+        }
+
+        function logMessage(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logDiv = document.getElementById('log');
+            logDiv.innerHTML += `[${timestamp}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(`[WL Test] ${message}`);
+        }
+
+        // Update stats every 2 seconds
+        setInterval(updateStats, 2000);
+
+        // Add keyboard shortcuts for testing
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey || e.metaKey) {
+                switch (e.key) {
+                    case 'g':
+                        e.preventDefault();
+                        generateTestMessages();
+                        break;
+                    case 'r':
+                        e.preventDefault();
+                        refreshMessages();
+                        break;
+                    case 'c':
+                        e.preventDefault();
+                        clearAllFiltering();
+                        break;
+                }
+            }
+        });
+    </script>
+</body>
+</html>
