@@ -998,6 +998,9 @@
 
         this.stats.processed += messageElements.length;
         log(`Processed ${messageElements.length} messages (${this.stats.processed} total)`);
+
+        // Emit event to update UI stats
+        eventBus.emit('filter:stats_updated', this.getStats());
       } catch (e) {
         console.error("[WL] Error processing message batch:", e);
       }
@@ -1453,6 +1456,8 @@
       try {
         log('Starting refreshAllMessages...');
 
+        // Reset stats for fresh count
+        this.resetStats();
         // Clear cache
         this.messageCache.clear();
         log('Cache cleared');
@@ -1680,6 +1685,11 @@
       });
       eventBus.on('whitelist:bulk_update', () => {
         this.updateCollectionSelector();
+      });
+
+      // Listen for filter stats updates
+      eventBus.on('filter:stats_updated', () => {
+        this.updateStats();
       });
     }
 
@@ -2318,7 +2328,7 @@
 
       this.panel.querySelector('.wl-current-collection').textContent = collection?.name || '-';
       this.panel.querySelector('.wl-user-count').textContent = collection?.getSize() || 0;
-      this.panel.querySelector('.wl-filtered-count').textContent = filterStats.messagesProcessed || 0;
+      this.panel.querySelector('.wl-filtered-count').textContent = filterStats.filtered || 0;
       this.panel.querySelector('.wl-collection-count').textContent = allCollections.length;
     }
 
