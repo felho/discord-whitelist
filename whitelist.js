@@ -1648,7 +1648,7 @@
 
       // Listen for collection changes
       eventBus.on('collection:switched', (data) => {
-        this.activeCollectionId = data.newId;
+        this.activeCollectionId = data.to;
         this.updateCollectionSelector();
         this.updateWhitelistDisplay();
         this.updateStats();
