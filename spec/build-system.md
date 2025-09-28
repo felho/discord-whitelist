@@ -76,9 +76,11 @@ discord-whitelist/
 ├── whitelist.js           # Main functionality (unchanged)
 ├── build.js               # Build script
 ├── dist/
-│   └── discord-whitelist-static.user.js  # Generated static version
+│   └── discord-whitelist-static.user.js  # Generated static version (tracked in git)
 └── package.json           # Updated with build scripts
 ```
+
+**Note**: `dist/` directory is now tracked in git to provide direct access to built files for end users.
 
 ## Build Commands
 
@@ -148,5 +150,5 @@ npm run build:clean
 
 ### Long-term Goals
 1. **Automation**: Integration with version management workflow
-2. **Distribution**: Easy sharing of static versions
+2. **Distribution**: ✅ Easy sharing of static versions (built files now in git)
 3. **Updates**: Seamless process for releasing new versions

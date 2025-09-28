@@ -13,12 +13,14 @@ npx http-server . -S -C /path/to/localhost.pem -K /path/to/localhost-key.pem -p 
 # Navigate to Discord - whitelist system loads automatically
 ```
 
-### Production
+### Production (Built Version Included)
 ```bash
-# Build static version
-npm run build
+# Option 1: Use pre-built version (recommended for end users)
+# Install dist/discord-whitelist-static.user.js directly in TamperMonkey
 
-# Install dist/discord-whitelist-static.user.js in TamperMonkey
+# Option 2: Build from source (for developers)
+npm run build
+# Then install dist/discord-whitelist-static.user.js in TamperMonkey
 ```
 
 ## Features
@@ -40,13 +42,14 @@ npm run build
 
 ## Current Version
 
-**v0.4.4** (Grouped Message Filtering Fix + Build System)
+**v0.4.4** (Grouped Message Filtering Fix + Build System + Built Files in Git)
 
 ## Architecture
 
 - **tm-loader.js** - Development loader for dynamic code loading
 - **whitelist.js** - Core functionality with advanced features
 - **build.js** - Production build system for static deployment
+- **dist/** - Pre-built production files (ready for TamperMonkey)
 - **spec/** - Complete project specifications
 - **test/** - Comprehensive testing suite
 

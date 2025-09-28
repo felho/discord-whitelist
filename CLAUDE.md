@@ -141,13 +141,16 @@ The system implements a sophisticated multi-tier storage strategy:
 5. **Iteration**: Edit `whitelist.js`, reload Discord page (cache-busted automatically)
 
 ### Production Build
-1. **Build**: Run `npm run build` to generate static version
-2. **Install**: Copy `dist/discord-whitelist-static.user.js` to TamperMonkey
-3. **Deploy**: Static version works without development server
+1. **Option A - Use Pre-built** (Recommended for End Users): Use `dist/discord-whitelist-static.user.js` directly from git
+2. **Option B - Build from Source** (For Developers): Run `npm run build` to generate static version
+3. **Install**: Copy `dist/discord-whitelist-static.user.js` to TamperMonkey
+4. **Deploy**: Static version works without development server
+
+**Note**: Built files are now included in git repository for direct end-user access
 
 ## Technical Notes
 
-- **Version**: Currently v0.4.4 (User Interface Implementation + Grouped Message Fix)
+- **Version**: Currently v0.4.4 (User Interface Implementation + Grouped Message Fix + Built Files in Git)
 - **Cache Busting**: Automatic timestamp parameter prevents caching issues
 - **Error Handling**: Comprehensive try-catch blocks with graceful fallback behavior
 - **Logging**: Debug logging with `[WL]` prefix, configurable via `DEBUG` constant
