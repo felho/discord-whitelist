@@ -248,12 +248,17 @@
     }
 
     static fromJSON(data) {
+      // Convert date strings back to Date objects
+      const metadata = {
+        ...data.metadata,
+        created: new Date(data.metadata.created),
+        modified: new Date(data.metadata.modified),
+      };
+
       const collection = new WhitelistCollection(data.name, {
         id: data.id,
         settings: data.settings,
-        created: new Date(data.metadata.created),
-        modified: new Date(data.metadata.modified),
-        metadata: data.metadata,
+        metadata: metadata,
       });
 
       // Load entries
@@ -2085,7 +2090,7 @@
       const metaEl = this.panel.querySelector('.wl-collection-meta');
 
       nameEl.textContent = collection.name;
-      metaEl.textContent = `${collection.getSize()} users • Created \${collection.metadata.created.toLocaleDateString()}`;
+      metaEl.textContent = `${collection.getSize()} users • Created ${collection.metadata.created.toLocaleDateString()}`;
 
       // Update action button states
       const isDefault = collection.id === 'default';
