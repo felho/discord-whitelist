@@ -284,12 +284,17 @@ if (typeof window !== 'undefined') {
     }
 
     static fromJSON(data) {
+      // Convert date strings back to Date objects
+      const metadata = {
+        ...data.metadata,
+        created: new Date(data.metadata.created),
+        modified: new Date(data.metadata.modified),
+      };
+
       const collection = new WhitelistCollection(data.name, {
         id: data.id,
         settings: data.settings,
-        created: new Date(data.metadata.created),
-        modified: new Date(data.metadata.modified),
-        metadata: data.metadata,
+        metadata: metadata,
       });
 
       // Load entries
@@ -1684,7 +1689,7 @@ if (typeof window !== 'undefined') {
 
       // Listen for collection changes
       eventBus.on('collection:switched', (data) => {
-        this.activeCollectionId = data.newId;
+        this.activeCollectionId = data.to;
         this.updateCollectionSelector();
         this.updateWhitelistDisplay();
         this.updateStats();
@@ -1696,6 +1701,20 @@ if (typeof window !== 'undefined') {
       });
 
       eventBus.on('collection:deleted', () => {
+        this.updateCollectionSelector();
+      });
+
+      // Listen for whitelist changes to update collection counts
+      eventBus.on('whitelist:user_added', () => {
+        this.updateCollectionSelector();
+      });
+      eventBus.on('whitelist:user_removed', () => {
+        this.updateCollectionSelector();
+      });
+      eventBus.on('whitelist:cleared', () => {
+        this.updateCollectionSelector();
+      });
+      eventBus.on('whitelist:bulk_update', () => {
         this.updateCollectionSelector();
       });
     }
@@ -2107,7 +2126,7 @@ if (typeof window !== 'undefined') {
       const metaEl = this.panel.querySelector('.wl-collection-meta');
 
       nameEl.textContent = collection.name;
-      metaEl.textContent = `${collection.getSize()} users • Created \${collection.metadata.created.toLocaleDateString()}`;
+      metaEl.textContent = `${collection.getSize()} users • Created ${collection.metadata.created.toLocaleDateString()}`;
 
       // Update action button states
       const isDefault = collection.id === 'default';
@@ -2254,6 +2273,7 @@ if (typeof window !== 'undefined') {
 
         this.clearUnsavedChanges();
         this.updateStats();
+        this.updateCollectionSelector(); // Update collection count in selector
 
         log(`Saved ${added} usernames to collection:`, collection.name);
 
@@ -2279,6 +2299,7 @@ if (typeof window !== 'undefined') {
       this.storageManager.saveCollections();
       this.updateWhitelistDisplay();
       this.updateStats();
+      this.updateCollectionSelector(); // Update collection count in selector
 
       log('Cleared collection:', collection.name);
     }
