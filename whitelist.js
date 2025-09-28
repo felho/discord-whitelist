@@ -181,9 +181,9 @@
       this.entries = new Map();
       this.settings = options.settings || {};
       this.metadata = {
-        created: options.created || new Date(),
-        modified: options.modified || new Date(),
         ...options.metadata,
+        created: options.created || options.metadata?.created || new Date(),
+        modified: options.modified || options.metadata?.modified || new Date(),
       };
     }
 
@@ -248,12 +248,25 @@
     }
 
     static fromJSON(data) {
-      // Convert date strings back to Date objects
+      // Convert date strings back to Date objects with validation
+      const now = new Date();
+
+      // Ensure metadata exists
+      const rawMetadata = data.metadata || {};
+
       const metadata = {
-        ...data.metadata,
-        created: new Date(data.metadata.created),
-        modified: new Date(data.metadata.modified),
+        ...rawMetadata,
+        created: rawMetadata.created ? new Date(rawMetadata.created) : now,
+        modified: rawMetadata.modified ? new Date(rawMetadata.modified) : now,
       };
+
+      // Validate dates and use current date as fallback for invalid dates
+      if (isNaN(metadata.created.getTime())) {
+        metadata.created = now;
+      }
+      if (isNaN(metadata.modified.getTime())) {
+        metadata.modified = now;
+      }
 
       const collection = new WhitelistCollection(data.name, {
         id: data.id,
@@ -307,10 +320,27 @@
     loadCollections() {
       try {
         const stored = Storage.get(COLLECTIONS_KEY, []);
+        let migrationNeeded = false;
+
         stored.forEach(collectionData => {
+          // Check if metadata needs migration
+          const metadata = collectionData.metadata || {};
+          if (!metadata.created || !metadata.modified ||
+              isNaN(new Date(metadata.created).getTime()) ||
+              isNaN(new Date(metadata.modified).getTime())) {
+            migrationNeeded = true;
+            log(`Migrating invalid dates for collection: ${collectionData.name || 'Unknown'}`);
+          }
+
           const collection = WhitelistCollection.fromJSON(collectionData);
           this.collections.set(collection.id, collection);
         });
+
+        // Save corrected collections if migration was needed
+        if (migrationNeeded) {
+          log('Saving migrated collections with corrected dates');
+          this.saveCollections();
+        }
 
         // Ensure default collection exists
         if (!this.collections.has('default')) {
