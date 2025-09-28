@@ -2,7 +2,7 @@
 node_modules/
 
 # Build artifacts
-dist/
+# dist/ - Commented out to include built files for end users
 
 # Development certificates (if stored in project)
 *.pem
