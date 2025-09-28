@@ -2,7 +2,30 @@
 
 A TamperMonkey userscript that enables filtering Discord messages based on a user-managed whitelist with advanced collection management and real-time UI.
 
-## Quick Start
+## For Regular Users (Just Want to Use the Script)
+
+### Step 1: Install TamperMonkey
+1. Install the [TamperMonkey browser extension](https://www.tampermonkey.net/)
+   - Chrome: [Chrome Web Store](https://chrome.google.com/webstore/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo)
+   - Firefox: [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/tampermonkey/)
+   - Edge: [Microsoft Store](https://microsoftedge.microsoft.com/addons/detail/tampermonkey/iikmkjmpaadaobahmlepeloendndfphd)
+
+### Step 2: Install the Discord Whitelist Script
+1. Download the latest script: **[discord-whitelist-static.user.js](https://raw.githubusercontent.com/felho/discord-whitelist/main/dist/discord-whitelist-static.user.js)**
+2. Click the downloaded file or drag it into your browser - TamperMonkey will prompt to install
+3. Click "Install" in the TamperMonkey dialog
+
+### Step 3: Use on Discord
+1. Navigate to [Discord](https://discord.com/) in your browser
+2. Press `Ctrl+Shift+W` to open the whitelist control panel
+3. Add usernames to your whitelist and enable filtering
+4. Messages from non-whitelisted users will be collapsed or hidden
+
+That's it! The script will automatically filter Discord messages based on your whitelist.
+
+## For Developers
+
+### Quick Start
 
 ### Development
 ```bash
