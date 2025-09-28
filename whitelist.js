@@ -1812,14 +1812,14 @@
           <!-- Actions Section -->
           <div class="wl-panel-section">
             <div class="wl-section-header">
-              <h3>Actions</h3>
+              <h3>Actions <span style="font-size: 10px; color: #72767d; font-weight: normal;">(Coming Soon)</span></h3>
             </div>
             <div class="wl-section-content">
               <div class="wl-actions-grid">
-                <button class="wl-btn wl-import-data">Import</button>
-                <button class="wl-btn wl-export-data">Export</button>
-                <button class="wl-btn wl-btn-secondary wl-reset-data">Reset</button>
-                <button class="wl-btn wl-btn-secondary wl-help">Help</button>
+                <button class="wl-btn wl-import-data" disabled title="Import functionality - Coming Soon">Import</button>
+                <button class="wl-btn wl-export-data" disabled title="Export functionality - Coming Soon">Export</button>
+                <button class="wl-btn wl-btn-secondary wl-reset-data" disabled title="Reset functionality - Coming Soon">Reset</button>
+                <button class="wl-btn wl-btn-secondary wl-help" disabled title="Help documentation - Coming Soon">Help</button>
               </div>
             </div>
           </div>
@@ -1942,9 +1942,9 @@
         console.warn('[WL] Section toggles not found');
       }
 
-      // Import/Export
-      safeAddEventListener('.wl-import-data', 'click', () => this.showImportDialog(), '(import data button)');
-      safeAddEventListener('.wl-export-data', 'click', () => this.showExportDialog(), '(export data button)');
+      // Import/Export (disabled - coming soon)
+      // safeAddEventListener('.wl-import-data', 'click', () => this.showImportDialog(), '(import data button)');
+      // safeAddEventListener('.wl-export-data', 'click', () => this.showExportDialog(), '(export data button)');
 
       // Global drag handlers
       document.addEventListener('mousemove', (e) => this.handleDrag(e));
@@ -2336,15 +2336,15 @@
       alert('Error: ' + message);
     }
 
-    showImportDialog() {
-      // TODO: Implement import dialog
-      this.showError('Import functionality not yet implemented');
-    }
+    // showImportDialog() {
+    //   // TODO: Implement import dialog
+    //   this.showError('Import functionality not yet implemented');
+    // }
 
-    showExportDialog() {
-      // TODO: Implement export dialog
-      this.showError('Export functionality not yet implemented');
-    }
+    // showExportDialog() {
+    //   // TODO: Implement export dialog
+    //   this.showError('Export functionality not yet implemented');
+    // }
 
     // CSS styles
     applyStyles() {
@@ -2557,6 +2557,11 @@
 
         .wl-btn-secondary:hover {
           background: #5d6269;
+        }
+        .wl-btn-secondary:disabled {
+          background: #36393f;
+          color: #6a6d73;
+          cursor: not-allowed;
         }
 
         .wl-btn-small {
