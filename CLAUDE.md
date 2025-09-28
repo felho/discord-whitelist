@@ -19,6 +19,8 @@ Note: The project requires HTTPS for local development due to Discord's security
 ### Available Scripts
 
 - `npm test` - Currently placeholder, exits with error message
+- `npm run build` - Generate static TamperMonkey userscript for production
+- `npm run build:clean` - Clean dist/ directory and rebuild
 
 ## Architecture
 
@@ -131,11 +133,17 @@ The system implements a sophisticated multi-tier storage strategy:
 
 ## Development Workflow
 
+### Development Mode
 1. **Setup**: Install SSL certificates for HTTPS localhost
 2. **Development**: Start `http-server` with SSL on port 5174 (or 5173)
 3. **Testing**: Install `tm-loader.js` in Tampermonkey, navigate to Discord
 4. **Debugging**: Use `window.WL` API in browser console for comprehensive testing
 5. **Iteration**: Edit `whitelist.js`, reload Discord page (cache-busted automatically)
+
+### Production Build
+1. **Build**: Run `npm run build` to generate static version
+2. **Install**: Copy `dist/discord-whitelist-static.user.js` to TamperMonkey
+3. **Deploy**: Static version works without development server
 
 ## Technical Notes
 
@@ -214,6 +222,16 @@ The system implements a sophisticated multi-tier storage strategy:
 - Added `findUsernameFromPreviousMessage()` method to search backward through message siblings
 - Implemented intelligent message grouping detection with search limits
 - Improved handling of Discord's message grouping behavior for consecutive posts
+
+**Build System Implementation (v0.4.4+)**
+- Created comprehensive build system for static TamperMonkey userscript generation
+- Build script (`build.js`) with automatic version extraction and validation
+- NPM scripts for `build` and `build:clean` operations
+- Direct code execution approach for optimal performance (no string evaluation)
+- Preserves original IIFE structure with proper GM API injection
+- Generates production-ready `dist/discord-whitelist-static.user.js` (92KB)
+- Comprehensive build validation and error handling
+- Reproducible build process for consistent deployment
 
 ### 🚧 Next Development Phase
 

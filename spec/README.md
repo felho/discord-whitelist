@@ -27,11 +27,20 @@ This directory contains all specification documents for the Discord Whitelist Ta
 - Error handling strategies
 - Integration points with Discord and storage systems
 
+### `build-system.md`
+**Build System Specification**
+- Static TamperMonkey userscript generation system
+- Build process requirements and technical implementation
+- Input/output file handling and version management
+- Performance optimization through direct code execution
+- Reproducible build workflow and deployment strategy
+
 ## Specification Status
 
 - ✅ **Whitelist Management System**: Fully implemented and documented
 - ✅ **Message Filtering Engine**: Fully implemented and documented
 - ✅ **User Interface Panel**: Fully implemented and documented
+- ✅ **Build System**: Fully implemented and documented
 - 🚧 **Advanced Features**: Next development phase (import/export UI, enhanced shortcuts)
 - 📋 **Polish and Optimization**: Future milestone
 

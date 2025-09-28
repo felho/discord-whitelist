@@ -6,7 +6,9 @@
       "Bash(open https://localhost:5174/debug-test.html)",
       "Bash(node:*)",
       "Bash(open https://localhost:5174/test-wms.html)",
-      "Bash(open https://localhost:5174/test/test-wms.html)"
+      "Bash(open https://localhost:5174/test/test-wms.html)",
+      "Bash(npm run build:*)",
+      "Bash(sed:*)"
     ],
     "deny": [],
     "ask": []
