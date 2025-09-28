@@ -25,15 +25,38 @@ That's it! The script will automatically filter Discord messages based on your w
 
 ## For Developers
 
+### Development Philosophy
+
+This project uses a unique **dynamic loading development setup** designed for rapid iteration and efficient development workflow:
+
+**Why this setup?**
+- **Fast Iteration**: Edit `whitelist.js` in your IDE and simply refresh Discord - no copy-pasting into TamperMonkey
+- **Live Development**: Main code lives in the filesystem where you can use proper debugging, version control, and IDE features
+- **No Manual Updates**: Changes are automatically loaded without manually updating the TamperMonkey script
+- **Real Development Environment**: Work with actual files instead of textarea boxes in browser extensions
+
+**How it works:**
+1. **tm-loader.js** - Minimal TamperMonkey script that fetches the real code from localhost
+2. **whitelist.js** - Your actual development code that gets dynamically loaded
+3. **HTTPS localhost** - Required for Discord's security policies
+4. **Automatic cache-busting** - Ensures fresh code loads on every page refresh
+
+This approach transforms TamperMonkey development from a tedious copy-paste workflow into a proper development experience.
+
 ### Quick Start
 
-### Development
+### Development Setup
 ```bash
-# Start development server
-npx http-server . -S -C /path/to/localhost.pem -K /path/to/localhost-key.pem -p 5174
+# 1. Generate SSL certificates (one-time setup)
+# Install mkcert: https://github.com/FiloSottile/mkcert
+mkcert localhost
 
-# Install tm-loader.js in TamperMonkey
-# Navigate to Discord - whitelist system loads automatically
+# 2. Start development server with HTTPS
+npx http-server . -S -C localhost.pem -K localhost-key.pem -p 5174
+
+# 3. Install tm-loader.js in TamperMonkey (one-time)
+# 4. Navigate to Discord - whitelist system loads automatically from localhost
+# 5. Edit whitelist.js and refresh Discord page to see changes
 ```
 
 ### Production (Built Version Included)
