@@ -217,9 +217,9 @@ if (typeof window !== 'undefined') {
       this.entries = new Map();
       this.settings = options.settings || {};
       this.metadata = {
-        created: options.created || new Date(),
-        modified: options.modified || new Date(),
         ...options.metadata,
+        created: options.created || options.metadata?.created || new Date(),
+        modified: options.modified || options.metadata?.modified || new Date(),
       };
     }
 
@@ -284,12 +284,25 @@ if (typeof window !== 'undefined') {
     }
 
     static fromJSON(data) {
-      // Convert date strings back to Date objects
+      // Convert date strings back to Date objects with validation
+      const now = new Date();
+
+      // Ensure metadata exists
+      const rawMetadata = data.metadata || {};
+
       const metadata = {
-        ...data.metadata,
-        created: new Date(data.metadata.created),
-        modified: new Date(data.metadata.modified),
+        ...rawMetadata,
+        created: rawMetadata.created ? new Date(rawMetadata.created) : now,
+        modified: rawMetadata.modified ? new Date(rawMetadata.modified) : now,
       };
+
+      // Validate dates and use current date as fallback for invalid dates
+      if (isNaN(metadata.created.getTime())) {
+        metadata.created = now;
+      }
+      if (isNaN(metadata.modified.getTime())) {
+        metadata.modified = now;
+      }
 
       const collection = new WhitelistCollection(data.name, {
         id: data.id,
@@ -343,10 +356,27 @@ if (typeof window !== 'undefined') {
     loadCollections() {
       try {
         const stored = Storage.get(COLLECTIONS_KEY, []);
+        let migrationNeeded = false;
+
         stored.forEach(collectionData => {
+          // Check if metadata needs migration
+          const metadata = collectionData.metadata || {};
+          if (!metadata.created || !metadata.modified ||
+              isNaN(new Date(metadata.created).getTime()) ||
+              isNaN(new Date(metadata.modified).getTime())) {
+            migrationNeeded = true;
+            log(`Migrating invalid dates for collection: ${collectionData.name || 'Unknown'}`);
+          }
+
           const collection = WhitelistCollection.fromJSON(collectionData);
           this.collections.set(collection.id, collection);
         });
+
+        // Save corrected collections if migration was needed
+        if (migrationNeeded) {
+          log('Saving migrated collections with corrected dates');
+          this.saveCollections();
+        }
 
         // Ensure default collection exists
         if (!this.collections.has('default')) {
@@ -1034,6 +1064,9 @@ if (typeof window !== 'undefined') {
 
         this.stats.processed += messageElements.length;
         log(`Processed ${messageElements.length} messages (${this.stats.processed} total)`);
+
+        // Emit event to update UI stats
+        eventBus.emit('filter:stats_updated', this.getStats());
       } catch (e) {
         console.error("[WL] Error processing message batch:", e);
       }
@@ -1489,6 +1522,8 @@ if (typeof window !== 'undefined') {
       try {
         log('Starting refreshAllMessages...');
 
+        // Reset stats for fresh count
+        this.resetStats();
         // Clear cache
         this.messageCache.clear();
         log('Cache cleared');
@@ -1717,6 +1752,11 @@ if (typeof window !== 'undefined') {
       eventBus.on('whitelist:bulk_update', () => {
         this.updateCollectionSelector();
       });
+
+      // Listen for filter stats updates
+      eventBus.on('filter:stats_updated', () => {
+        this.updateStats();
+      });
     }
 
     createPanel() {
@@ -1848,14 +1888,14 @@ if (typeof window !== 'undefined') {
           <!-- Actions Section -->
           <div class="wl-panel-section">
             <div class="wl-section-header">
-              <h3>Actions</h3>
+              <h3>Actions <span style="font-size: 10px; color: #72767d; font-weight: normal;">(Coming Soon)</span></h3>
             </div>
             <div class="wl-section-content">
               <div class="wl-actions-grid">
-                <button class="wl-btn wl-import-data">Import</button>
-                <button class="wl-btn wl-export-data">Export</button>
-                <button class="wl-btn wl-btn-secondary wl-reset-data">Reset</button>
-                <button class="wl-btn wl-btn-secondary wl-help">Help</button>
+                <button class="wl-btn wl-import-data" disabled title="Import functionality - Coming Soon">Import</button>
+                <button class="wl-btn wl-export-data" disabled title="Export functionality - Coming Soon">Export</button>
+                <button class="wl-btn wl-btn-secondary wl-reset-data" disabled title="Reset functionality - Coming Soon">Reset</button>
+                <button class="wl-btn wl-btn-secondary wl-help" disabled title="Help documentation - Coming Soon">Help</button>
               </div>
             </div>
           </div>
@@ -1978,9 +2018,9 @@ if (typeof window !== 'undefined') {
         console.warn('[WL] Section toggles not found');
       }
 
-      // Import/Export
-      safeAddEventListener('.wl-import-data', 'click', () => this.showImportDialog(), '(import data button)');
-      safeAddEventListener('.wl-export-data', 'click', () => this.showExportDialog(), '(export data button)');
+      // Import/Export (disabled - coming soon)
+      // safeAddEventListener('.wl-import-data', 'click', () => this.showImportDialog(), '(import data button)');
+      // safeAddEventListener('.wl-export-data', 'click', () => this.showExportDialog(), '(export data button)');
 
       // Global drag handlers
       document.addEventListener('mousemove', (e) => this.handleDrag(e));
@@ -2354,7 +2394,7 @@ if (typeof window !== 'undefined') {
 
       this.panel.querySelector('.wl-current-collection').textContent = collection?.name || '-';
       this.panel.querySelector('.wl-user-count').textContent = collection?.getSize() || 0;
-      this.panel.querySelector('.wl-filtered-count').textContent = filterStats.messagesProcessed || 0;
+      this.panel.querySelector('.wl-filtered-count').textContent = filterStats.filtered || 0;
       this.panel.querySelector('.wl-collection-count').textContent = allCollections.length;
     }
 
@@ -2372,15 +2412,15 @@ if (typeof window !== 'undefined') {
       alert('Error: ' + message);
     }
 
-    showImportDialog() {
-      // TODO: Implement import dialog
-      this.showError('Import functionality not yet implemented');
-    }
+    // showImportDialog() {
+    //   // TODO: Implement import dialog
+    //   this.showError('Import functionality not yet implemented');
+    // }
 
-    showExportDialog() {
-      // TODO: Implement export dialog
-      this.showError('Export functionality not yet implemented');
-    }
+    // showExportDialog() {
+    //   // TODO: Implement export dialog
+    //   this.showError('Export functionality not yet implemented');
+    // }
 
     // CSS styles
     applyStyles() {
@@ -2593,6 +2633,11 @@ if (typeof window !== 'undefined') {
 
         .wl-btn-secondary:hover {
           background: #5d6269;
+        }
+        .wl-btn-secondary:disabled {
+          background: #36393f;
+          color: #6a6d73;
+          cursor: not-allowed;
         }
 
         .wl-btn-small {
