@@ -1662,6 +1662,20 @@
       eventBus.on('collection:deleted', () => {
         this.updateCollectionSelector();
       });
+
+      // Listen for whitelist changes to update collection counts
+      eventBus.on('whitelist:user_added', () => {
+        this.updateCollectionSelector();
+      });
+      eventBus.on('whitelist:user_removed', () => {
+        this.updateCollectionSelector();
+      });
+      eventBus.on('whitelist:cleared', () => {
+        this.updateCollectionSelector();
+      });
+      eventBus.on('whitelist:bulk_update', () => {
+        this.updateCollectionSelector();
+      });
     }
 
     createPanel() {
@@ -2218,6 +2232,7 @@
 
         this.clearUnsavedChanges();
         this.updateStats();
+        this.updateCollectionSelector(); // Update collection count in selector
 
         log(`Saved ${added} usernames to collection:`, collection.name);
 
@@ -2243,6 +2258,7 @@
       this.storageManager.saveCollections();
       this.updateWhitelistDisplay();
       this.updateStats();
+      this.updateCollectionSelector(); // Update collection count in selector
 
       log('Cleared collection:', collection.name);
     }
