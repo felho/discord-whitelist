@@ -150,7 +150,7 @@ The system implements a sophisticated multi-tier storage strategy:
 
 ## Technical Notes
 
-- **Version**: Currently v0.4.4 (User Interface Implementation + Grouped Message Fix + Built Files in Git)
+- **Version**: Currently v0.5.3 (Context Menu Integration + Critical Bug Fixes)
 - **Cache Busting**: Automatic timestamp parameter prevents caching issues
 - **Error Handling**: Comprehensive try-catch blocks with graceful fallback behavior
 - **Logging**: Debug logging with `[WL]` prefix, configurable via `DEBUG` constant
@@ -225,6 +225,32 @@ The system implements a sophisticated multi-tier storage strategy:
 - Added `findUsernameFromPreviousMessage()` method to search backward through message siblings
 - Implemented intelligent message grouping detection with search limits
 - Improved handling of Discord's message grouping behavior for consecutive posts
+
+**Milestone 3: Context Menu Integration (v0.5.0)**
+- Complete ContextMenuManager class with Discord-integrated right-click functionality
+- Right-click context menu on Discord messages with whitelist operations
+- Smart username extraction from various Discord message elements (direct, grouped, replies)
+- Context-aware menu options based on whitelist status
+- Add/remove users directly from context menu with instant feedback
+- User info display showing whitelist status, collection, and metadata
+- Collection switching submenu when multiple collections exist
+- Quick access to whitelist settings panel
+- Discord-themed styling matching platform design language
+- Notification system with slide-in animations for user feedback
+- Keyboard navigation support (Escape to close, arrow keys for navigation)
+- Intelligent menu positioning to stay within viewport boundaries
+- Integration with existing WhitelistManager, UIManager, and FilterEngine
+- Developer API for programmatic context menu control
+- Comprehensive test suite with mock Discord message structure
+
+**Milestone 3.1: Critical Context Menu Bug Fixes (v0.5.1-v0.5.3)**
+- **v0.5.1**: Fixed StorageManager reference issue preventing context menu initialization
+- **v0.5.2**: Fixed reply message username extraction bug that incorrectly identified replied-to users instead of actual message authors
+- **v0.5.3**: Fixed "Whitelist Settings" button not opening the control panel
+- Enhanced username detection logic to properly handle Discord reply messages
+- Added comprehensive debugging and logging for troubleshooting
+- Improved test coverage for complex Discord message structures
+- Enhanced reply message filtering to avoid extracting usernames from mentions
 
 **Build System Implementation (v0.4.4+)**
 - Created comprehensive build system for static TamperMonkey userscript generation

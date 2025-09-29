@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Discord Whitelist
 // @namespace    discord-whitelist
-// @version      v0.4.4 (Grouped Message Filtering Fix)
+// @version      v0.5.3 (Context Menu Integration - Fixed Settings Button)
 // @description  Discord message filtering based on user whitelist
 // @author       Discord Whitelist
 // @match        https://discord.com/*
@@ -17,7 +17,7 @@
 (function() {
   'use strict';
 
-  console.log('[Discord Whitelist] Static version v0.4.4 (Grouped Message Filtering Fix) initializing...');
+  console.log('[Discord Whitelist] Static version v0.5.3 (Context Menu Integration - Fixed Settings Button) initializing...');
 
   // The main functionality follows below
 })();
@@ -37,7 +37,7 @@ if (typeof window !== 'undefined') {
 (() => {
   "use strict";
 
-  const VERSION = "v0.4.4 (Grouped Message Filtering Fix)";
+  const VERSION = "v0.5.3 (Context Menu Integration - Fixed Settings Button)";
 
   // --- Storage adapter (prefers page localStorage, falls back to TM storage) ---
   const Storage = (() => {
@@ -2769,8 +2769,547 @@ if (typeof window !== 'undefined') {
     }
   }
 
+  // --- Context Menu Manager ---
+  class ContextMenuManager {
+    constructor(whitelistManager, uiManager, filterEngine, storageManager) {
+      this.whitelistManager = whitelistManager;
+      this.uiManager = uiManager;
+      this.filterEngine = filterEngine;
+      this.storageManager = storageManager;
+      this.activeMenu = null;
+      this.targetUsername = null;
+      this.targetElement = null;
+      this.menuElement = null;
+      this.initialized = false;
+    }
+
+    initialize() {
+      if (this.initialized) return;
+
+      // Prevent default Discord context menu on messages
+      document.addEventListener('contextmenu', (e) => {
+        if (this.isMessageElement(e.target)) {
+          e.preventDefault();
+          e.stopPropagation();
+          this.handleContextMenu(e);
+        }
+      }, true); // Use capture phase to intercept before Discord
+
+      // Close menu on outside click
+      document.addEventListener('click', (e) => {
+        if (this.menuElement && !this.menuElement.contains(e.target)) {
+          this.hideMenu();
+        }
+      });
+
+      // Close menu on escape key
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && this.activeMenu) {
+          this.hideMenu();
+        }
+      });
+
+      this.addStyles();
+      this.initialized = true;
+      log("ContextMenuManager initialized");
+    }
+
+    isMessageElement(element) {
+      // Check if element is part of a Discord message
+      return element.closest('li[id^="chat-messages-"]') !== null;
+    }
+
+    handleContextMenu(e) {
+      const username = this.extractUsername(e.target);
+      if (!username) {
+        log("Could not extract username from context menu target");
+        return;
+      }
+
+      this.targetUsername = username;
+      this.targetElement = e.target;
+
+      const isWhitelisted = this.whitelistManager.isWhitelisted(username);
+      const menuOptions = this.buildMenuOptions(username, isWhitelisted);
+
+      this.createMenu(menuOptions);
+      this.showMenu(e.clientX, e.clientY);
+    }
+
+    extractUsername(element) {
+      // Try multiple strategies to find the ACTUAL MESSAGE AUTHOR (not mentioned/replied users)
+
+      const messageEl = element.closest('li[id^="chat-messages-"]');
+      if (!messageEl) {
+        return null;
+      }
+
+      // Strategy 1: Look for the message author's username in the header
+      // This should be the first username element that's NOT part of a reply
+      const usernameElements = messageEl.querySelectorAll('[class*="username"]');
+
+      for (const usernameEl of usernameElements) {
+        // Skip usernames that are inside reply previews or mentions
+        const isInReplyPreview = usernameEl.closest('[class*="repliedMessage"]') ||
+                                usernameEl.closest('[class*="replyPreview"]') ||
+                                usernameEl.closest('[class*="mention"]') ||
+                                usernameEl.closest('[class*="reply"]');
+
+        if (!isInReplyPreview && usernameEl.textContent) {
+          const username = usernameEl.textContent.trim();
+          log(`extractUsername: Found author username: ${username}`);
+          return username;
+        }
+      }
+
+      // Strategy 2: If we clicked directly on a username element, make sure it's the author
+      const clickedUsernameEl = element.closest('[class*="username"]');
+      if (clickedUsernameEl && clickedUsernameEl.textContent) {
+        // Check if this username is the message author (not a reply mention)
+        const isReplyMention = clickedUsernameEl.closest('[class*="repliedMessage"]') ||
+                              clickedUsernameEl.closest('[class*="replyPreview"]') ||
+                              clickedUsernameEl.closest('[class*="mention"]') ||
+                              clickedUsernameEl.closest('[class*="reply"]');
+
+        if (!isReplyMention) {
+          const username = clickedUsernameEl.textContent.trim();
+          log(`extractUsername: Clicked on author username: ${username}`);
+          return username;
+        } else {
+          log(`extractUsername: Skipping reply mention: ${clickedUsernameEl.textContent.trim()}`);
+          // Fall through to find the actual author
+        }
+      }
+
+      // Strategy 3: Check for grouped message (inherit from previous)
+      const inheritedUsername = this.findUsernameFromPreviousMessage(messageEl);
+      if (inheritedUsername) {
+        log(`extractUsername: Inherited username from previous message: ${inheritedUsername}`);
+        return inheritedUsername;
+      }
+
+      // Strategy 4: Last resort - look for any username but prefer non-mention ones
+      const allUsernames = messageEl.querySelectorAll('[class*="username"]');
+      for (const usernameEl of allUsernames) {
+        if (usernameEl.textContent) {
+          const username = usernameEl.textContent.trim();
+          log(`extractUsername: Last resort username: ${username}`);
+          return username;
+        }
+      }
+
+      log(`extractUsername: Could not find username for message: ${messageEl.id}`);
+      return null;
+    }
+
+    findUsernameFromPreviousMessage(messageEl) {
+      let prev = messageEl.previousElementSibling;
+      let searchCount = 0;
+      const maxSearch = 10; // Limit search to prevent infinite loop
+
+      while (prev && searchCount < maxSearch) {
+        if (prev.nodeName === 'LI' && prev.id && prev.id.startsWith('chat-messages-')) {
+          const usernameEl = prev.querySelector('[class*="username"]');
+          if (usernameEl && usernameEl.textContent) {
+            // Check if this is likely the same user (grouped messages)
+            const currentContent = messageEl.textContent || '';
+
+            // If we found a username and messages seem related, use it
+            if (!currentContent.includes('replied to')) {
+              return usernameEl.textContent.trim();
+            }
+
+            // If we hit a different user's message, stop searching
+            break;
+          }
+        }
+        prev = prev.previousElementSibling;
+        searchCount++;
+      }
+
+      return null;
+    }
+
+    buildMenuOptions(username, isWhitelisted) {
+      const options = [];
+
+      if (isWhitelisted) {
+        options.push({
+          label: '❌ Remove from Whitelist',
+          action: () => this.removeFromWhitelist(username),
+          className: 'wl-context-menu-remove'
+        });
+      } else {
+        options.push({
+          label: '✅ Add to Whitelist',
+          action: () => this.addToWhitelist(username),
+          className: 'wl-context-menu-add'
+        });
+      }
+
+      options.push({
+        label: '📊 View User Info',
+        action: () => this.showUserInfo(username),
+        className: 'wl-context-menu-info'
+      });
+
+      options.push({ separator: true });
+
+      const collections = this.storageManager.getAllCollections();
+      if (collections.length > 1) {
+        const currentCollection = this.storageManager.getActiveCollection();
+        options.push({
+          label: '🔄 Switch Collection',
+          submenu: collections.map(col => ({
+            label: col.name + (col.id === currentCollection.id ? ' ✓' : ''),
+            action: () => this.switchCollection(col.id),
+            className: col.id === currentCollection.id ? 'wl-context-menu-current' : ''
+          }))
+        });
+      }
+
+      options.push({
+        label: '⚙️ Whitelist Settings',
+        action: () => this.openSettings(),
+        className: 'wl-context-menu-settings'
+      });
+
+      return options;
+    }
+
+    createMenu(options) {
+      // Remove existing menu if any
+      this.hideMenu();
+
+      // Create new menu element
+      const menu = document.createElement('div');
+      menu.className = 'wl-context-menu';
+      menu.setAttribute('role', 'menu');
+
+      options.forEach(option => {
+        if (option.separator) {
+          const separator = document.createElement('div');
+          separator.className = 'wl-context-menu-separator';
+          menu.appendChild(separator);
+        } else if (option.submenu) {
+          const item = document.createElement('div');
+          item.className = 'wl-context-menu-item wl-context-menu-submenu';
+          item.setAttribute('role', 'menuitem');
+          item.innerHTML = `
+            <span>${option.label}</span>
+            <span class="wl-context-menu-submenu-arrow">▶</span>
+          `;
+
+          const submenu = document.createElement('div');
+          submenu.className = 'wl-context-submenu';
+          option.submenu.forEach(subOption => {
+            const subItem = document.createElement('div');
+            subItem.className = `wl-context-menu-item ${subOption.className || ''}`;
+            subItem.setAttribute('role', 'menuitem');
+            subItem.textContent = subOption.label;
+            subItem.addEventListener('click', (e) => {
+              e.stopPropagation();
+              subOption.action();
+              this.hideMenu();
+            });
+            submenu.appendChild(subItem);
+          });
+
+          item.appendChild(submenu);
+          item.addEventListener('mouseenter', () => {
+            submenu.style.display = 'block';
+          });
+          item.addEventListener('mouseleave', () => {
+            submenu.style.display = 'none';
+          });
+
+          menu.appendChild(item);
+        } else {
+          const item = document.createElement('div');
+          item.className = `wl-context-menu-item ${option.className || ''}`;
+          item.setAttribute('role', 'menuitem');
+          item.textContent = option.label;
+          item.addEventListener('click', (e) => {
+            e.stopPropagation();
+            option.action();
+            this.hideMenu();
+          });
+          menu.appendChild(item);
+        }
+      });
+
+      this.menuElement = menu;
+      this.activeMenu = menu;
+      document.body.appendChild(menu);
+    }
+
+    showMenu(x, y) {
+      if (!this.menuElement) return;
+
+      // Initial position for measurement
+      this.menuElement.style.visibility = 'hidden';
+      this.menuElement.style.display = 'block';
+
+      const menuRect = this.menuElement.getBoundingClientRect();
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+
+      // Adjust position to keep menu in viewport
+      let posX = x;
+      let posY = y;
+
+      // Flip horizontally if too close to right edge
+      if (x + menuRect.width > viewportWidth - 10) {
+        posX = x - menuRect.width;
+      }
+
+      // Flip vertically if too close to bottom
+      if (y + menuRect.height > viewportHeight - 10) {
+        posY = y - menuRect.height;
+      }
+
+      // Ensure minimum distance from edges
+      posX = Math.max(10, Math.min(posX, viewportWidth - menuRect.width - 10));
+      posY = Math.max(10, Math.min(posY, viewportHeight - menuRect.height - 10));
+
+      this.menuElement.style.left = `${posX}px`;
+      this.menuElement.style.top = `${posY}px`;
+      this.menuElement.style.visibility = 'visible';
+    }
+
+    hideMenu() {
+      if (this.menuElement) {
+        this.menuElement.remove();
+        this.menuElement = null;
+        this.activeMenu = null;
+        this.targetUsername = null;
+        this.targetElement = null;
+      }
+    }
+
+    // Action handlers
+    async addToWhitelist(username) {
+      const success = await this.whitelistManager.addUser(username, { source: 'context-menu' });
+      if (success) {
+        log(`Added ${username} to whitelist via context menu`);
+        this.showNotification(`✅ Added ${username} to whitelist`);
+        // Refresh the filter to update message visibility
+        if (this.filterEngine) {
+          this.filterEngine.refresh();
+        }
+        // Update UI if visible
+        if (this.uiManager && this.uiManager.isVisible) {
+          this.uiManager.refresh();
+        }
+      } else {
+        this.showNotification(`❌ Failed to add ${username} to whitelist`);
+      }
+    }
+
+    async removeFromWhitelist(username) {
+      const success = await this.whitelistManager.removeUser(username);
+      if (success) {
+        log(`Removed ${username} from whitelist via context menu`);
+        this.showNotification(`✅ Removed ${username} from whitelist`);
+        // Refresh the filter to update message visibility
+        if (this.filterEngine) {
+          this.filterEngine.refresh();
+        }
+        // Update UI if visible
+        if (this.uiManager && this.uiManager.isVisible) {
+          this.uiManager.refresh();
+        }
+      } else {
+        this.showNotification(`❌ Failed to remove ${username} from whitelist`);
+      }
+    }
+
+    showUserInfo(username) {
+      const isWhitelisted = this.whitelistManager.isWhitelisted(username);
+      const collection = this.storageManager.getActiveCollection();
+      const userEntry = collection.entries.get(username.toLowerCase());
+
+      let info = `👤 User: ${username}\n`;
+      info += `📋 Status: ${isWhitelisted ? 'Whitelisted ✅' : 'Not whitelisted ❌'}\n`;
+      info += `📂 Collection: ${collection.name}\n`;
+
+      if (userEntry) {
+        info += `📅 Added: ${new Date(userEntry.dateAdded).toLocaleDateString()}\n`;
+        if (userEntry.lastSeen) {
+          info += `👁️ Last seen: ${new Date(userEntry.lastSeen).toLocaleDateString()}\n`;
+        }
+        if (userEntry.notes) {
+          info += `📝 Notes: ${userEntry.notes}\n`;
+        }
+      }
+
+      // Show info in a temporary notification
+      this.showNotification(info, 5000);
+    }
+
+    switchCollection(collectionId) {
+      this.storageManager.setActiveCollection(collectionId);
+      const collection = this.storageManager.getCollection(collectionId);
+      if (collection) {
+        log(`Switched to collection: ${collection.name}`);
+        this.showNotification(`🔄 Switched to collection: ${collection.name}`);
+        // Refresh everything
+        if (this.filterEngine) {
+          this.filterEngine.refresh();
+        }
+        if (this.uiManager && this.uiManager.isVisible) {
+          this.uiManager.refresh();
+        }
+      }
+    }
+
+    openSettings() {
+      if (this.uiManager) {
+        log('openSettings: Opening whitelist settings panel');
+        this.uiManager.showPanel();
+      } else {
+        log('openSettings: UIManager not available');
+      }
+    }
+
+    showNotification(message, duration = 3000) {
+      // Create a temporary notification
+      const notification = document.createElement('div');
+      notification.className = 'wl-context-notification';
+      notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #5865f2;
+        color: white;
+        padding: 12px 16px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        z-index: 10001;
+        max-width: 300px;
+        animation: wl-slide-in 0.3s ease-out;
+        white-space: pre-wrap;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        font-size: 14px;
+      `;
+      notification.textContent = message;
+
+      document.body.appendChild(notification);
+
+      setTimeout(() => {
+        notification.style.animation = 'wl-slide-out 0.3s ease-in';
+        setTimeout(() => notification.remove(), 300);
+      }, duration);
+    }
+
+    addStyles() {
+      const style = document.createElement('style');
+      style.textContent = `
+        .wl-context-menu {
+          position: fixed;
+          z-index: 10000;
+          background: #2b2d31;
+          border: 1px solid #1e1f22;
+          border-radius: 4px;
+          padding: 6px 8px;
+          box-shadow: 0 8px 16px rgba(0,0,0,0.24);
+          min-width: 188px;
+          max-width: 320px;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+          font-size: 14px;
+          color: #dbdee1;
+          user-select: none;
+        }
+
+        .wl-context-menu-item {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 6px 8px;
+          margin: 2px 0;
+          border-radius: 2px;
+          cursor: pointer;
+          transition: background-color 0.1s ease;
+        }
+
+        .wl-context-menu-item:hover {
+          background-color: #4752c4;
+          color: #ffffff;
+        }
+
+        .wl-context-menu-separator {
+          height: 1px;
+          background-color: #3f4147;
+          margin: 4px 0;
+        }
+
+        .wl-context-menu-submenu {
+          position: relative;
+        }
+
+        .wl-context-menu-submenu-arrow {
+          opacity: 0.6;
+          font-size: 10px;
+        }
+
+        .wl-context-submenu {
+          position: absolute;
+          left: 100%;
+          top: 0;
+          margin-left: 4px;
+          background: #2b2d31;
+          border: 1px solid #1e1f22;
+          border-radius: 4px;
+          padding: 6px 8px;
+          box-shadow: 0 8px 16px rgba(0,0,0,0.24);
+          min-width: 150px;
+          display: none;
+        }
+
+        .wl-context-menu-current {
+          font-weight: 600;
+        }
+
+        .wl-context-menu-add {
+          color: #3ba55d;
+        }
+
+        .wl-context-menu-remove {
+          color: #ed4245;
+        }
+
+        @keyframes wl-slide-in {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+
+        @keyframes wl-slide-out {
+          from {
+            transform: translateX(0);
+            opacity: 1;
+          }
+          to {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  }
+
   // Initialize UI Manager
   const uiManager = new UIManager(whitelistManager, filterEngine, storageManager);
+
+  // Initialize Context Menu Manager
+  const contextMenuManager = new ContextMenuManager(whitelistManager, uiManager, filterEngine, storageManager);
+  contextMenuManager.initialize();
 
   // --- Enhanced Public API (exposed on window for dev/testing) ---
   const API = {
@@ -2897,6 +3436,23 @@ if (typeof window !== 'undefined') {
       hide: () => uiManager.hidePanel(),
       toggle: () => uiManager.togglePanel(),
       isVisible: () => uiManager.isVisible,
+    },
+    // Context menu controls
+    contextMenu: {
+      manager: contextMenuManager,
+      show: (x, y, username) => {
+        if (username) {
+          contextMenuManager.targetUsername = username;
+          const isWhitelisted = whitelistManager.isWhitelisted(username);
+          const options = contextMenuManager.buildMenuOptions(username, isWhitelisted);
+          contextMenuManager.createMenu(options);
+          contextMenuManager.showMenu(x, y);
+        }
+      },
+      hide: () => contextMenuManager.hideMenu(),
+      addUser: (username) => contextMenuManager.addToWhitelist(username),
+      removeUser: (username) => contextMenuManager.removeFromWhitelist(username),
+      showUserInfo: (username) => contextMenuManager.showUserInfo(username),
     },
 
     // Developer utilities

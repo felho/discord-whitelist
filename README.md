@@ -17,9 +17,10 @@ A TamperMonkey userscript that enables filtering Discord messages based on a use
 
 ### Step 3: Use on Discord
 1. Navigate to [Discord](https://discord.com/) in your browser
-2. Press `Ctrl+Shift+W` to open the whitelist control panel
-3. Add usernames to your whitelist and enable filtering
-4. Messages from non-whitelisted users will be collapsed or hidden
+2. **Right-click any message** to open the context menu with whitelist options
+3. Or press `Ctrl+Shift+W` to open the whitelist control panel
+4. Add usernames to your whitelist and enable filtering
+5. Messages from non-whitelisted users will be collapsed or hidden
 
 That's it! The script will automatically filter Discord messages based on your whitelist.
 
@@ -71,10 +72,12 @@ npm run build
 
 ## Features
 
+- ✅ **Right-Click Context Menu** - Quick whitelist management directly from Discord messages
 - ✅ **Real-time Message Filtering** - Filter Discord messages based on whitelist
 - ✅ **Multiple Collections** - Organize whitelists into collections with metadata
 - ✅ **Advanced UI Panel** - Draggable, Discord-integrated control panel (Ctrl+Shift+W)
 - ✅ **Multiple Display Modes** - Normal (collapse), Hard Hide, Show All temporarily
+- ✅ **Smart Username Detection** - Handles grouped messages, replies, and mentions correctly
 - ✅ **Import/Export** - JSON, CSV, TXT format support
 - ✅ **Persistent Storage** - Multi-tier storage (localStorage → TamperMonkey → memory)
 - ✅ **Developer API** - Comprehensive `window.WL` API for programmatic control
@@ -88,7 +91,7 @@ npm run build
 
 ## Current Version
 
-**v0.4.4** (Grouped Message Filtering Fix + Build System + Built Files in Git)
+**v0.5.3** (Context Menu Integration + Critical Bug Fixes)
 
 ## Architecture
 

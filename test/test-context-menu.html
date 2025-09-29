@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Context Menu Test - Discord Whitelist</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #36393f;
+            color: #dcddde;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            background: #2f3136;
+            border-radius: 8px;
+        }
+
+        .mock-message {
+            display: flex;
+            padding: 10px;
+            margin: 5px 0;
+            background: #40444b;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .mock-message:hover {
+            background: #4f545c;
+        }
+
+        .mock-username {
+            color: #5865f2;
+            font-weight: 600;
+            margin-right: 8px;
+        }
+
+        .mock-content {
+            color: #dcddde;
+        }
+
+        .test-instructions {
+            background: #5865f2;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .test-status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+
+        .test-status.success {
+            background: #3ba55d;
+            color: white;
+        }
+
+        .test-status.error {
+            background: #ed4245;
+            color: white;
+        }
+
+        .test-status.info {
+            background: #5865f2;
+            color: white;
+        }
+
+        .mock-discord {
+            background: #36393f;
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .mock-message-list li {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .mock-message-list {
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Mock Discord message structure */
+        li[id^="chat-messages-"] {
+            padding: 2px 16px;
+            position: relative;
+        }
+
+        .mock-message-header {
+            display: flex;
+            align-items: baseline;
+            margin-bottom: 4px;
+        }
+
+        [class*="username"] {
+            font-weight: 600;
+            cursor: pointer;
+            margin-right: 8px;
+        }
+
+        .user-alice [class*="username"] { color: #5865f2; }
+        .user-bob [class*="username"] { color: #57f287; }
+        .user-charlie [class*="username"] { color: #fee75c; }
+
+        .mock-reply-preview {
+            background: #2f3136;
+            border-left: 4px solid #4f545c;
+            padding: 8px 12px;
+            margin: 4px 0;
+            border-radius: 4px;
+            font-size: 0.875rem;
+            opacity: 0.8;
+        }
+
+        .mock-reply-content {
+            margin-top: 4px;
+            color: #b9bbbe;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🖱️ Context Menu Test Page</h1>
+
+        <div class="test-instructions">
+            <h3>📋 Test Instructions:</h3>
+            <ol>
+                <li>Make sure you have the Discord Whitelist userscript loaded</li>
+                <li>Right-click on any of the mock messages below</li>
+                <li>You should see a custom context menu with whitelist options</li>
+                <li>Test adding/removing users and verify the functionality</li>
+                <li>Check the console for debug logs: <code>[WL]</code></li>
+            </ol>
+        </div>
+
+        <div class="test-section">
+            <h3>🧪 Mock Discord Messages</h3>
+            <div class="mock-discord">
+                <ul class="mock-message-list">
+                    <li id="chat-messages-test-1" class="user-alice">
+                        <div class="mock-message-header">
+                            <span class="mock-username username-element">Alice</span>
+                            <span class="mock-timestamp">Today at 3:45 PM</span>
+                        </div>
+                        <div class="mock-content">Hey everyone! This is a test message from Alice.</div>
+                    </li>
+
+                    <li id="chat-messages-test-2" class="user-alice">
+                        <div class="mock-content">This is a grouped message from Alice (no username shown)</div>
+                    </li>
+
+                    <li id="chat-messages-test-3" class="user-bob">
+                        <div class="mock-message-header">
+                            <span class="mock-username username-element">Bob</span>
+                            <span class="mock-timestamp">Today at 3:46 PM</span>
+                        </div>
+                        <div class="mock-content">Hello Alice! Right-click on this message to test the context menu.</div>
+                    </li>
+
+                    <li id="chat-messages-test-4" class="user-bob">
+                        <div class="mock-content">Another grouped message from Bob</div>
+                    </li>
+
+                    <li id="chat-messages-test-5" class="user-charlie">
+                        <div class="mock-message-header">
+                            <span class="mock-username username-element">Charlie</span>
+                            <span class="mock-timestamp">Today at 3:47 PM</span>
+                        </div>
+                        <div class="mock-content">Testing context menu functionality! Try right-clicking on usernames too.</div>
+                    </li>
+
+                    <li id="chat-messages-test-6" class="user-alice">
+                        <div class="mock-message-header">
+                            <span class="mock-username username-element">SDVT🍄</span>
+                            <span class="mock-timestamp">Today at 11:30 PM</span>
+                        </div>
+                        <div class="mock-reply-preview repliedMessage">
+                            Replying to <span class="mock-username username-element">@Baze Trader (SB)</span>
+                            <div class="mock-reply-content">You might want to consider ETF's until you learn more and build more confidence.</div>
+                        </div>
+                        <div class="mock-content">so I bought it as 44 last week then it was all the way down to 40. i added but then it seemed like it was still rejecting and the indexes were losing ground last week. What am I missing that would have kept me in the trade as opposed to thinking we were headed for more downside</div>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔧 API Testing</h3>
+            <p>Use these commands in the browser console to test the API:</p>
+            <pre style="background: #2f3136; padding: 15px; border-radius: 4px; overflow-x: auto;">
+// Show context menu programmatically
+WL.contextMenu.show(200, 200, 'TestUser');
+
+// Add user via API
+WL.contextMenu.addUser('TestUser');
+
+// Remove user via API
+WL.contextMenu.removeUser('TestUser');
+
+// Show user info
+WL.contextMenu.showUserInfo('TestUser');
+
+// Hide menu
+WL.contextMenu.hide();
+
+// Check if whitelist is working
+WL.whitelist.getAll();
+            </pre>
+        </div>
+
+        <div class="test-section">
+            <h3>✅ Test Checklist</h3>
+            <div id="test-results">
+                <!-- Test results will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Basic test functionality
+        console.log('🧪 Context Menu Test Page Loaded');
+
+        // Wait for whitelist system to load
+        setTimeout(() => {
+            const testResults = document.getElementById('test-results');
+
+            function addTestResult(name, status, message) {
+                const div = document.createElement('div');
+                div.className = `test-status ${status}`;
+                div.innerHTML = `<strong>${name}:</strong> ${message}`;
+                testResults.appendChild(div);
+            }
+
+            // Test 1: Check if WL API is available
+            if (window.WL) {
+                addTestResult('WL API', 'success', 'WL object is available globally');
+
+                // Test 2: Check if context menu manager exists
+                if (window.WL.contextMenu) {
+                    addTestResult('Context Menu API', 'success', 'Context menu API is available');
+
+                    // Test 3: Check if context menu manager is initialized
+                    if (window.WL.contextMenu.manager) {
+                        addTestResult('Context Menu Manager', 'success', 'Context menu manager is initialized');
+
+                        if (window.WL.contextMenu.manager.initialized) {
+                            addTestResult('Initialization', 'success', 'Context menu event listeners are active');
+                        } else {
+                            addTestResult('Initialization', 'error', 'Context menu not properly initialized');
+                        }
+                    } else {
+                        addTestResult('Context Menu Manager', 'error', 'Context menu manager not found');
+                    }
+                } else {
+                    addTestResult('Context Menu API', 'error', 'Context menu API not available');
+                }
+
+                // Test 4: Check version
+                addTestResult('Version', 'info', `Running ${window.WL.version}`);
+
+                // Test 5: Check whitelist functionality
+                try {
+                    const whitelistCount = window.WL.whitelist.getAll().length;
+                    addTestResult('Whitelist', 'success', `${whitelistCount} users currently whitelisted`);
+                } catch (e) {
+                    addTestResult('Whitelist', 'error', `Error accessing whitelist: ${e.message}`);
+                }
+
+            } else {
+                addTestResult('WL API', 'error', 'WL object not found - make sure the userscript is loaded');
+            }
+
+            // Add instructions for manual testing
+            addTestResult('Manual Test', 'info', 'Right-click on the mock messages above to test context menu functionality');
+
+        }, 1000); // Wait 1 second for everything to load
+
+        // Add right-click listener to show custom behavior
+        document.addEventListener('contextmenu', (e) => {
+            console.log('🖱️ Right-click detected on:', e.target);
+
+            // Check if it's on a message element
+            const messageEl = e.target.closest('li[id^="chat-messages-"]');
+            if (messageEl) {
+                console.log('📨 Right-click on message:', messageEl.id);
+
+                // Try to extract username
+                const usernameEl = messageEl.querySelector('[class*="username"]');
+                if (usernameEl) {
+                    console.log('👤 Username found:', usernameEl.textContent);
+                } else {
+                    console.log('👤 No username element found in this message');
+                }
+            }
+        });
+    </script>
+</body>
+</html>

@@ -12,7 +12,7 @@ This directory contains testing files for the Whitelist Management System.
 - Access: `https://localhost:5174/test/test-wms.html`
 
 ### `test-filtering.html`
-**Message Filtering Test Suite (NEW)**
+**Message Filtering Test Suite**
 - Interactive test environment for Milestone 1 message filtering functionality
 - Mock Discord interface with real-time filtering simulation
 - Tests all display modes: normal (collapse), hard hide, show all temporarily
@@ -20,6 +20,16 @@ This directory contains testing files for the Whitelist Management System.
 - Interactive controls for whitelist management and filtering modes
 - Generates test messages and validates filtering behavior
 - Access: `https://localhost:5174/test/test-filtering.html`
+
+### `test-context-menu.html`
+**Context Menu Test Suite (NEW)**
+- Interactive test environment for Milestone 3 context menu functionality
+- Mock Discord message structure with reply message simulation
+- Tests right-click context menu integration and username extraction
+- Includes test cases for grouped messages, replies, and mentions
+- API testing commands and validation interface
+- Comprehensive test checklist with automatic validation
+- Access: `https://localhost:5174/test/test-context-menu.html`
 
 ### `debug-test.html`
 **Basic Diagnostic Tool**
@@ -41,6 +51,14 @@ This directory contains testing files for the Whitelist Management System.
 - Copy-paste friendly for Discord console testing
 - Sequential test commands for validation
 - Use: Load in browser console after whitelist.js loads
+
+### `debug-context-menu.js`
+**Context Menu Debug Tool**
+- Comprehensive debugging script for context menu troubleshooting
+- Analyzes context menu manager state and configuration
+- Tests message detection and username extraction
+- Provides manual context menu triggering functions
+- Use: Copy content and paste into Discord console for debugging
 
 ## Usage
 
@@ -116,3 +134,16 @@ This directory contains testing files for the Whitelist Management System.
 - ✅ Improved message element detection for reliable container identification
 - ✅ Performance optimization with search boundaries and logical grouping
 - ✅ Handles Discord's message grouping behavior correctly
+
+### Context Menu Integration (v0.5.0-v0.5.3)
+- ✅ **ContextMenuManager Class**: Complete implementation with Discord integration
+- ✅ **Right-Click Integration**: Context menu appears on Discord messages
+- ✅ **Smart Username Extraction**: Handles direct usernames, grouped messages, and replies
+- ✅ **Context-Aware Menu Options**: Dynamic menu based on whitelist status
+- ✅ **Discord-Themed UI**: Matches Discord's design with hover effects and animations
+- ✅ **Notification System**: Slide-in notifications for user feedback
+- ✅ **Intelligent Positioning**: Menu stays within viewport boundaries
+- ✅ **Keyboard Navigation**: Escape key support and arrow navigation
+- ✅ **Developer API**: Full programmatic access via `WL.contextMenu`
+- ✅ **Bug Fixes**: StorageManager reference, reply message extraction, settings button
+- ✅ **Test Coverage**: Mock Discord structures and edge case testing

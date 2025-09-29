@@ -182,13 +182,47 @@ Enhanced message filtering for Discord's message grouping behavior:
 - ✅ Event-driven UI updates with comprehensive error handling
 - ✅ Unsaved changes protection and user confirmation dialogs
 
-### 🚧 **Milestone 3: Advanced Features (NEXT)**
+### ✅ **Milestone 3: Advanced Features (COMPLETED)**
 
 - ✅ Keyboard shortcuts system (Ctrl+Shift+W implemented)
 - ✅ Collapse mode with placeholder messages (implemented)
 - ✅ Hard hide mode with DOM removal (implemented)
 - ✅ Temporary show-all override functionality (implemented)
-- 📋 Context menu integration
+- ✅ Context menu integration (v0.5.0-v0.5.3)
+
+### ✅ **Completed - Context Menu Integration (v0.5.0-v0.5.3)**
+
+Complete right-click context menu functionality with Discord integration:
+
+**Core Implementation (v0.5.0):**
+- ✅ **ContextMenuManager Class**: Complete implementation with 500+ lines of code
+- ✅ **Right-Click Integration**: Intercepts Discord's context menu on messages using capture phase
+- ✅ **Smart Username Extraction**: Handles direct usernames, grouped messages, and reply contexts
+- ✅ **Context-Aware Menu Options**: Dynamic menu based on whitelist status and collections
+- ✅ **Discord-Themed UI**: Matches Discord's dark theme with hover effects and animations
+- ✅ **Notification System**: Slide-in notifications for user feedback with auto-dismiss
+- ✅ **Intelligent Positioning**: Keeps menu within viewport boundaries with edge detection
+- ✅ **Keyboard Navigation**: Escape key support and arrow key navigation
+- ✅ **Developer API**: Full programmatic access via `WL.contextMenu` namespace
+
+**Critical Bug Fixes:**
+- ✅ **v0.5.1**: Fixed StorageManager reference causing initialization failures
+- ✅ **v0.5.2**: Fixed reply message username extraction (prevented wrong user targeting)
+- ✅ **v0.5.3**: Fixed "Whitelist Settings" button not opening control panel
+
+**Menu Features:**
+- ✅ **Add/Remove Operations**: Context-aware add/remove from whitelist
+- ✅ **User Information Display**: Shows whitelist status, collection, and metadata
+- ✅ **Collection Switching**: Submenu for switching between multiple collections
+- ✅ **Settings Access**: Quick access to main whitelist control panel
+- ✅ **Visual Feedback**: Color-coded options (green=add, red=remove)
+
+**Technical Implementation:**
+- ✅ **Event Handling**: Capture phase interception with proper event delegation
+- ✅ **Username Detection**: Multi-strategy extraction with reply/mention filtering
+- ✅ **DOM Integration**: Works with Discord's dynamic message structure
+- ✅ **Performance**: Efficient event handling with minimal DOM operations
+- ✅ **Test Coverage**: Comprehensive test suite with mock Discord structures
 
 ### Milestone 4: Polish and Optimization
 
