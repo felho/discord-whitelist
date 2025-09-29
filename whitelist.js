@@ -1856,8 +1856,6 @@
             </div>
             <div class="wl-section-content">
               <div class="wl-actions-grid">
-                <button class="wl-btn wl-import-data" disabled title="Import functionality - Coming Soon">Import</button>
-                <button class="wl-btn wl-export-data" disabled title="Export functionality - Coming Soon">Export</button>
                 <button class="wl-btn wl-btn-secondary wl-reset-data" disabled title="Reset functionality - Coming Soon">Reset</button>
                 <button class="wl-btn wl-btn-secondary wl-help" disabled title="Help documentation - Coming Soon">Help</button>
               </div>
@@ -1982,9 +1980,6 @@
         console.warn('[WL] Section toggles not found');
       }
 
-      // Import/Export (disabled - coming soon)
-      // safeAddEventListener('.wl-import-data', 'click', () => this.showImportDialog(), '(import data button)');
-      // safeAddEventListener('.wl-export-data', 'click', () => this.showExportDialog(), '(export data button)');
 
       // Global drag handlers
       document.addEventListener('mousemove', (e) => this.handleDrag(e));
@@ -2376,15 +2371,6 @@
       alert('Error: ' + message);
     }
 
-    // showImportDialog() {
-    //   // TODO: Implement import dialog
-    //   this.showError('Import functionality not yet implemented');
-    // }
-
-    // showExportDialog() {
-    //   // TODO: Implement export dialog
-    //   this.showError('Export functionality not yet implemented');
-    // }
 
     // CSS styles
     applyStyles() {

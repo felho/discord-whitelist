@@ -188,8 +188,6 @@ Enhanced message filtering for Discord's message grouping behavior:
 - ✅ Collapse mode with placeholder messages (implemented)
 - ✅ Hard hide mode with DOM removal (implemented)
 - ✅ Temporary show-all override functionality (implemented)
-- 📋 Import/export user interface integration
-- 📋 Advanced keyboard shortcuts for collection management
 - 📋 Context menu integration
 
 ### Milestone 4: Polish and Optimization
