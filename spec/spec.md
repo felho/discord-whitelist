@@ -224,6 +224,33 @@ Complete right-click context menu functionality with Discord integration:
 - ✅ **Performance**: Efficient event handling with minimal DOM operations
 - ✅ **Test Coverage**: Comprehensive test suite with mock Discord structures
 
+### ✅ **Completed - Individual Message Toggle Switches (v0.6.0)**
+
+Per-message visibility control with toggle switches for fine-grained filtering override:
+
+**Core Implementation:**
+- ✅ **MessageToggleSwitch Class**: Complete implementation for individual message control
+- ✅ **Toggle Position**: Small switches in top-left corner of filtered messages
+- ✅ **Default State**: OFF (messages follow whitelist filter), ON overrides to show
+- ✅ **Session Persistence**: Toggle states persist during session, reset on page reload
+- ✅ **Visual Design**: Discord-themed switches with smooth transitions and hover effects
+- ✅ **FilterEngine Integration**: Seamless override of filtering decisions when toggled
+- ✅ **Keyboard Accessibility**: Full support for Tab, Enter, and Space keys
+- ✅ **Smart Behavior**: Toggles only appear on non-whitelisted messages
+- ✅ **Override Indicator**: Visual feedback (eye emoji) when toggle overrides filter
+
+**Developer API:**
+- ✅ **Toggle Access**: `window.WL.filter.toggles` namespace for programmatic control
+- ✅ **API Methods**: get(), set(), clear(), getAll() for toggle management
+- ✅ **State Management**: Session-based storage with Map data structure
+- ✅ **Integration**: Works with existing filter refresh and clear operations
+
+**Technical Details:**
+- ✅ **CSS Styling**: Custom toggle switch with Discord CSS variables
+- ✅ **DOM Management**: Proper cleanup when filtering disabled or refreshed
+- ✅ **Performance**: Minimal overhead with efficient state checking
+- ✅ **Test Suite**: Comprehensive test page at `/test/test-toggle-switches.html`
+
 ### Milestone 4: Polish and Optimization
 
 - Optimize performance for large channels

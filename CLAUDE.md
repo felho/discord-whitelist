@@ -150,7 +150,7 @@ The system implements a sophisticated multi-tier storage strategy:
 
 ## Technical Notes
 
-- **Version**: Currently v0.5.3 (Context Menu Integration + Critical Bug Fixes)
+- **Version**: Currently v0.6.0 (Individual Message Toggle Switches)
 - **Cache Busting**: Automatic timestamp parameter prevents caching issues
 - **Error Handling**: Comprehensive try-catch blocks with graceful fallback behavior
 - **Logging**: Debug logging with `[WL]` prefix, configurable via `DEBUG` constant
@@ -261,6 +261,18 @@ The system implements a sophisticated multi-tier storage strategy:
 - Generates production-ready `dist/discord-whitelist-static.user.js` (92KB)
 - Comprehensive build validation and error handling
 - Reproducible build process for consistent deployment
+
+**Milestone 4: Individual Message Toggle Switches (v0.6.0)**
+- **MessageToggleSwitch Class**: Per-message visibility control independent of whitelist
+- **Toggle Position**: Small toggle switches in top-left corner of filtered messages
+- **Default State**: OFF (messages follow whitelist filter), ON overrides to show message
+- **Session Persistence**: Toggle states persist during session, reset on page reload
+- **Visual Design**: Discord-themed switches with smooth transitions and hover effects
+- **FilterEngine Integration**: Seamless override of filtering decisions when toggled
+- **Keyboard Accessibility**: Full support for Tab, Enter, and Space keys
+- **Developer API**: `window.WL.filter.toggles` for programmatic control
+- **Smart Behavior**: Toggles only appear on non-whitelisted messages
+- **Test Suite**: Comprehensive test page at `/test/test-toggle-switches.html`
 
 ### 🚧 Next Development Phase
 

@@ -72,6 +72,7 @@ npm run build
 
 ## Features
 
+- ✅ **Individual Message Toggle Switches** - Per-message visibility control with toggle switches (top-left corner)
 - ✅ **Right-Click Context Menu** - Quick whitelist management directly from Discord messages
 - ✅ **Real-time Message Filtering** - Filter Discord messages based on whitelist
 - ✅ **Multiple Collections** - Organize whitelists into collections with metadata
@@ -91,7 +92,7 @@ npm run build
 
 ## Current Version
 
-**v0.5.3** (Context Menu Integration + Critical Bug Fixes)
+**v0.6.0** (Individual Message Toggle Switches)
 
 ## Architecture
 
