@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Toggle Switch Test - Discord Whitelist</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: #2f3136;
+      color: #dcddde;
+      padding: 20px;
+      line-height: 1.6;
+    }
+
+    .test-section {
+      background: #36393f;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    }
+
+    h1, h2 {
+      color: #fff;
+    }
+
+    .test-messages {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin: 20px 0;
+    }
+
+    .message {
+      background: #40444b;
+      padding: 15px;
+      border-radius: 6px;
+      position: relative;
+      transition: all 0.2s ease;
+    }
+
+    .message[id] {
+      min-height: 50px;
+    }
+
+    .username {
+      font-weight: bold;
+      color: #7289da;
+      margin-bottom: 5px;
+    }
+
+    .content {
+      color: #dcddde;
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      margin: 20px 0;
+    }
+
+    button {
+      background: #5865f2;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.2s;
+    }
+
+    button:hover {
+      background: #4752c4;
+    }
+
+    button:active {
+      transform: translateY(1px);
+    }
+
+    button.secondary {
+      background: #4f545c;
+    }
+
+    button.secondary:hover {
+      background: #5d6269;
+    }
+
+    .status {
+      background: #202225;
+      padding: 15px;
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 13px;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .test-result {
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 13px;
+    }
+
+    .test-result.success {
+      background: #43b581;
+      color: #1a1a1a;
+    }
+
+    .test-result.error {
+      background: #f04747;
+      color: white;
+    }
+
+    .test-result.warning {
+      background: #faa61a;
+      color: #1a1a1a;
+    }
+
+    /* Simulated filter classes */
+    .wl-hidden {
+      display: none !important;
+    }
+
+    .wl-collapsed {
+      opacity: 0.3;
+      background: rgba(114, 137, 218, 0.1);
+      border-left: 3px solid #7289da;
+    }
+
+    .wl-collapsed:hover {
+      opacity: 1;
+      background: rgba(114, 137, 218, 0.2);
+    }
+
+    .wl-toggle-override {
+      border: 2px solid #43b581;
+    }
+
+    /* CSS vars for Discord theme */
+    :root {
+      --background-secondary: #2f3136;
+      --background-tertiary: #202225;
+      --background-secondary-alt: #36393f;
+      --interactive-hover: #4f545c;
+      --brand-experiment: #5865f2;
+      --brand-experiment-560: #4752c4;
+    }
+  </style>
+</head>
+<body>
+  <h1>📝 Toggle Switch Feature Test</h1>
+
+  <div class="test-section">
+    <h2>Test Messages</h2>
+    <p>These simulated Discord messages will test the toggle switch functionality:</p>
+
+    <div class="test-messages" id="messages">
+      <!-- Whitelisted message (should not have toggle) -->
+      <div class="message wl-filtered-indicator" id="chat-messages-001">
+        <div class="username">Alice (Whitelisted)</div>
+        <div class="content">This is a whitelisted user's message. Should NOT have a toggle switch.</div>
+      </div>
+
+      <!-- Non-whitelisted messages (should have toggles) -->
+      <div class="message" id="chat-messages-002">
+        <div class="username">Bob (Not Whitelisted)</div>
+        <div class="content">This message should be filtered and have a toggle switch.</div>
+      </div>
+
+      <div class="message" id="chat-messages-003">
+        <div class="username">Charlie (Not Whitelisted)</div>
+        <div class="content">Another filtered message that should have a toggle switch.</div>
+      </div>
+
+      <div class="message" id="chat-messages-004">
+        <div class="username">David (Not Whitelisted)</div>
+        <div class="content">This message will test toggle persistence during session.</div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button onclick="initializeToggles()">Initialize Toggle Switches</button>
+      <button onclick="simulateFiltering()">Simulate Filtering</button>
+      <button onclick="testToggleAPI()">Test Toggle API</button>
+      <button onclick="clearAllToggles()" class="secondary">Clear All Toggles</button>
+      <button onclick="showToggleStates()" class="secondary">Show Toggle States</button>
+    </div>
+  </div>
+
+  <div class="test-section">
+    <h2>Test Results</h2>
+    <div id="results"></div>
+  </div>
+
+  <div class="test-section">
+    <h2>Status Monitor</h2>
+    <div class="status" id="status">Waiting for initialization...</div>
+  </div>
+
+  <script src="../whitelist.js"></script>
+  <script>
+    const resultsDiv = document.getElementById('results');
+    const statusDiv = document.getElementById('status');
+
+    function log(message, type = 'info') {
+      console.log('[Toggle Test]', message);
+      const result = document.createElement('div');
+      result.className = `test-result ${type === 'error' ? 'error' : type === 'warning' ? 'warning' : 'success'}`;
+      result.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      resultsDiv.appendChild(result);
+      resultsDiv.scrollTop = resultsDiv.scrollHeight;
+    }
+
+    function updateStatus() {
+      if (!window.WL) {
+        statusDiv.textContent = 'WL API not loaded';
+        return;
+      }
+
+      const toggleStates = window.WL.filter.toggles.getAll();
+      const filterStats = window.WL.filter.getStats();
+
+      statusDiv.textContent = `Toggle States: ${toggleStates.length} active
+Toggle Details: ${JSON.stringify(toggleStates, null, 2)}
+Filter Stats: ${JSON.stringify(filterStats, null, 2)}
+Filter Enabled: ${window.WL.filter.isEnabled()}`;
+    }
+
+    function initializeToggles() {
+      log('Initializing toggle switches...');
+
+      // Simulate message filtering for non-whitelisted messages
+      const messages = document.querySelectorAll('.message:not(.wl-filtered-indicator)');
+      messages.forEach(message => {
+        const messageId = message.id;
+        const username = message.querySelector('.username').textContent.split(' ')[0];
+
+        // Create toggle switch
+        const toggle = new window.MessageToggleSwitch(message, messageId);
+        toggle.create();
+
+        // Apply collapsed class to simulate filtering
+        message.classList.add('wl-collapsed');
+
+        log(`Created toggle for ${username} (${messageId})`);
+      });
+
+      updateStatus();
+    }
+
+    function simulateFiltering() {
+      log('Simulating message filtering...');
+
+      const messages = document.querySelectorAll('.message');
+      messages.forEach(message => {
+        const isWhitelisted = message.classList.contains('wl-filtered-indicator');
+
+        if (!isWhitelisted) {
+          // Check if toggle is active
+          const messageId = message.id;
+          const isToggled = window.WL && window.WL.filter.toggles.get(messageId);
+
+          if (isToggled) {
+            // Show message (toggle overrides filter)
+            message.classList.remove('wl-collapsed', 'wl-hidden');
+            message.classList.add('wl-toggle-override');
+            log(`Message ${messageId} visible (toggle override)`, 'warning');
+          } else {
+            // Hide message
+            message.classList.add('wl-collapsed');
+            message.classList.remove('wl-toggle-override');
+            log(`Message ${messageId} filtered`);
+          }
+        }
+      });
+
+      updateStatus();
+    }
+
+    function testToggleAPI() {
+      if (!window.WL) {
+        log('WL API not available', 'error');
+        return;
+      }
+
+      log('Testing Toggle API...');
+
+      // Test getting toggle state
+      const state1 = window.WL.filter.toggles.get('chat-messages-002');
+      log(`Toggle state for message-002: ${state1}`);
+
+      // Test setting toggle state
+      window.WL.filter.toggles.set('chat-messages-003', true);
+      log(`Set toggle for message-003 to TRUE`);
+
+      // Test getting all toggles
+      const allToggles = window.WL.filter.toggles.getAll();
+      log(`All toggle states: ${JSON.stringify(allToggles)}`);
+
+      // Refresh display
+      simulateFiltering();
+      updateStatus();
+    }
+
+    function clearAllToggles() {
+      if (!window.WL) {
+        log('WL API not available', 'error');
+        return;
+      }
+
+      log('Clearing all toggles...');
+      window.WL.filter.toggles.clear();
+
+      // Reset all messages
+      document.querySelectorAll('.message').forEach(message => {
+        const toggle = message.querySelector('.wl-message-toggle');
+        if (toggle) {
+          toggle.remove();
+        }
+        message.classList.remove('wl-toggle-override');
+      });
+
+      log('All toggles cleared');
+      updateStatus();
+    }
+
+    function showToggleStates() {
+      if (!window.WL) {
+        log('WL API not available', 'error');
+        return;
+      }
+
+      const states = window.WL.filter.toggles.getAll();
+      if (states.length === 0) {
+        log('No active toggles', 'warning');
+      } else {
+        states.forEach(([messageId, isVisible]) => {
+          log(`${messageId}: ${isVisible ? 'VISIBLE' : 'HIDDEN'}`);
+        });
+      }
+    }
+
+    // Initialize on load
+    window.addEventListener('DOMContentLoaded', () => {
+      setTimeout(() => {
+        if (window.WL) {
+          log('WL API loaded successfully');
+          log(`Version: ${window.WL.version}`);
+          updateStatus();
+        } else {
+          log('WL API failed to load', 'error');
+        }
+      }, 1000);
+    });
+
+    // Auto-update status
+    setInterval(updateStatus, 2000);
+  </script>
+</body>
+</html>

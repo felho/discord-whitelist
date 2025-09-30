@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "v0.5.3 (Context Menu Integration - Fixed Settings Button)";
+  const VERSION = "v0.6.0 (Individual Message Toggle Switches)";
 
   // --- Storage adapter (prefers page localStorage, falls back to TM storage) ---
   const Storage = (() => {
@@ -811,6 +811,78 @@
         color: #7289da;
         font-size: 8px;
       }
+
+      /* Toggle Switch Styles */
+      .wl-message-toggle {
+        position: absolute;
+        top: 8px;
+        left: 12px;
+        width: 32px;
+        height: 18px;
+        background: var(--background-secondary, #2f3136);
+        border-radius: 12px;
+        border: 2px solid var(--background-tertiary, #202225);
+        cursor: pointer;
+        transition: all 0.2s ease;
+        z-index: 10;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+      }
+
+      .wl-message-toggle:hover {
+        background: var(--background-secondary-alt, #36393f);
+        border-color: var(--interactive-hover, #4f545c);
+      }
+
+      .wl-message-toggle:focus {
+        outline: 2px solid var(--brand-experiment, #5865f2);
+        outline-offset: 2px;
+      }
+
+      .wl-message-toggle.active {
+        background: var(--brand-experiment, #5865f2);
+        border-color: var(--brand-experiment, #5865f2);
+      }
+
+      .wl-message-toggle.active:hover {
+        background: var(--brand-experiment-560, #4752c4);
+        border-color: var(--brand-experiment-560, #4752c4);
+      }
+
+      .wl-message-toggle::after {
+        content: '';
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 10px;
+        height: 10px;
+        background: white;
+        border-radius: 50%;
+        transition: transform 0.2s ease;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+      }
+
+      .wl-message-toggle.active::after {
+        transform: translateX(14px);
+      }
+
+      /* Message override indicator */
+      .wl-toggle-override {
+        position: relative;
+      }
+
+      .wl-toggle-override::after {
+        content: "👁";
+        position: absolute;
+        right: 12px;
+        top: 10px;
+        font-size: 12px;
+        opacity: 0.5;
+      }
+
+      /* Hide toggle switch on whitelisted messages */
+      .${FILTER_CLASSES.indicator} .wl-message-toggle {
+        display: none;
+      }
     `;
 
     const styleElement = document.createElement('style');
@@ -1046,6 +1118,17 @@
         const messageId = messageElement.id;
         log(`filterMessage: Processing message ${messageId}`);
 
+        // Check if toggle is overriding visibility
+        if (MessageToggleSwitch.getToggleState(messageId)) {
+          log(`filterMessage: Message ${messageId} has toggle override - keeping visible`);
+          // Ensure toggle switch exists
+          const toggle = new MessageToggleSwitch(messageElement, messageId);
+          toggle.create();
+          toggle.isVisible = true;
+          toggle.showMessage();
+          return;
+        }
+
         // Check cache first
         if (this.messageCache.has(messageId)) {
           const cached = this.messageCache.get(messageId);
@@ -1236,9 +1319,18 @@
 
     applyDisplayMode(messageElement, isWhitelisted, username) {
       const config = this.storage.config.globalSettings;
+      const messageId = messageElement.id;
 
       // Remove all filter classes first
       this.removeFilterClasses(messageElement);
+
+      // Remove any existing toggle switches for whitelisted messages
+      if (isWhitelisted) {
+        const existingToggle = messageElement.querySelector('.wl-message-toggle');
+        if (existingToggle) {
+          existingToggle.remove();
+        }
+      }
 
       // If showing all temporarily or globally disabled, don't filter
       if (config.showAllTemp || !config.enabled) {
@@ -1250,6 +1342,10 @@
         messageElement.classList.add(FILTER_CLASSES.indicator);
         return;
       }
+
+      // For non-whitelisted messages, add toggle switch
+      const toggle = new MessageToggleSwitch(messageElement, messageId);
+      toggle.create();
 
       // Apply filtering based on mode
       if (config.hardHide) {
@@ -1533,8 +1629,15 @@
         const allMessages = document.querySelectorAll(MESSAGE_SELECTORS.messageContainer);
         allMessages.forEach(message => {
           this.removeFilterClasses(message);
+          // Also remove toggle switches when clearing all filtering
+          const toggle = message.querySelector('.wl-message-toggle');
+          if (toggle) {
+            toggle.remove();
+          }
         });
-        log("Cleared all message filtering");
+        // Clear toggle states when filtering is disabled
+        MessageToggleSwitch.clearAllToggles();
+        log("Cleared all message filtering and toggle switches");
       } catch (e) {
         console.error("[WL] Error clearing filtering:", e);
       }
@@ -1557,12 +1660,152 @@
     }
   }
 
+  // --- Message Toggle Switch for individual message visibility control ---
+  class MessageToggleSwitch {
+    constructor(messageElement, messageId) {
+      this.messageElement = messageElement;
+      this.messageId = messageId;
+      this.isVisible = false; // Default OFF (message follows whitelist filter)
+      this.switchElement = null;
+      this.toggleStates = new Map(); // Static map to persist toggle states during session
+    }
+
+    static toggleStates = new Map(); // Session-based storage for toggle states
+
+    create() {
+      // Check if switch already exists
+      if (this.messageElement.querySelector('.wl-message-toggle')) {
+        return;
+      }
+
+      // Create toggle switch element
+      const toggleSwitch = document.createElement('div');
+      toggleSwitch.className = 'wl-message-toggle';
+      toggleSwitch.setAttribute('role', 'switch');
+      toggleSwitch.setAttribute('aria-checked', 'false');
+      toggleSwitch.setAttribute('aria-label', 'Show this message');
+      toggleSwitch.title = 'Toggle message visibility';
+
+      // Check if we have a saved state for this message
+      if (MessageToggleSwitch.toggleStates.has(this.messageId)) {
+        this.isVisible = MessageToggleSwitch.toggleStates.get(this.messageId);
+        if (this.isVisible) {
+          toggleSwitch.classList.add('active');
+          toggleSwitch.setAttribute('aria-checked', 'true');
+        }
+      }
+
+      // Add click event handler
+      toggleSwitch.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        this.toggle();
+      });
+
+      // Add keyboard support
+      toggleSwitch.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          e.stopPropagation();
+          this.toggle();
+        }
+      });
+
+      // Make it focusable
+      toggleSwitch.tabIndex = 0;
+
+      // Store reference
+      this.switchElement = toggleSwitch;
+
+      // Add to message element
+      this.messageElement.style.position = 'relative';
+      this.messageElement.appendChild(toggleSwitch);
+    }
+
+    toggle() {
+      this.isVisible = !this.isVisible;
+      MessageToggleSwitch.toggleStates.set(this.messageId, this.isVisible);
+      this.updateDisplay();
+    }
+
+    updateDisplay() {
+      if (!this.switchElement) return;
+
+      if (this.isVisible) {
+        // Toggle ON - show message regardless of filter
+        this.switchElement.classList.add('active');
+        this.switchElement.setAttribute('aria-checked', 'true');
+        this.showMessage();
+      } else {
+        // Toggle OFF - let filter decide visibility
+        this.switchElement.classList.remove('active');
+        this.switchElement.setAttribute('aria-checked', 'false');
+        // Trigger re-filtering for this message
+        if (window.filterEngine) {
+          window.filterEngine.filterMessage(this.messageElement);
+        }
+      }
+    }
+
+    showMessage() {
+      // Remove all filter classes to show the message
+      Object.values(FILTER_CLASSES).forEach(className => {
+        this.messageElement.classList.remove(className);
+      });
+
+      // Add special class to indicate manual override
+      this.messageElement.classList.add('wl-toggle-override');
+
+      // Reset opacity and styles
+      this.messageElement.style.opacity = '';
+
+      // Remove placeholder if exists
+      const placeholder = this.messageElement.querySelector(`.${FILTER_CLASSES.placeholder}`);
+      if (placeholder) {
+        placeholder.remove();
+      }
+
+      // Reset child elements
+      const allChildren = this.messageElement.querySelectorAll('*');
+      allChildren.forEach(element => {
+        if (!element.classList.contains('wl-message-toggle')) {
+          element.style.opacity = '';
+          element.style.display = '';
+          element.style.filter = '';
+        }
+      });
+    }
+
+    remove() {
+      if (this.switchElement) {
+        this.switchElement.remove();
+        this.switchElement = null;
+      }
+      MessageToggleSwitch.toggleStates.delete(this.messageId);
+    }
+
+    static getToggleState(messageId) {
+      return MessageToggleSwitch.toggleStates.get(messageId) || false;
+    }
+
+    static clearAllToggles() {
+      MessageToggleSwitch.toggleStates.clear();
+      // Remove all toggle switches from DOM
+      document.querySelectorAll('.wl-message-toggle').forEach(toggle => {
+        toggle.remove();
+      });
+    }
+  }
+
   // --- Initialize System ---
   const storageManager = new StorageManager();
   const whitelistManager = new WhitelistManager(storageManager);
   const searchManager = new SearchManager(whitelistManager);
   const dataManager = new DataManager(storageManager);
   const filterEngine = new FilterEngine(whitelistManager, storageManager);
+
+  // Expose filterEngine globally for toggle switches
+  window.filterEngine = filterEngine;
 
   // Handle collection switches
   eventBus.on('collection:switched', () => {
@@ -3391,6 +3634,20 @@
       getStats: () => filterEngine.getStats(),
       resetStats: () => filterEngine.resetStats(),
       isEnabled: () => filterEngine.isEnabled(),
+
+      // Toggle switches for individual messages
+      toggles: {
+        get: (messageId) => MessageToggleSwitch.getToggleState(messageId),
+        set: (messageId, state) => {
+          MessageToggleSwitch.toggleStates.set(messageId, state);
+          const messageElement = document.getElementById(messageId);
+          if (messageElement) {
+            filterEngine.filterMessage(messageElement);
+          }
+        },
+        clear: () => MessageToggleSwitch.clearAllToggles(),
+        getAll: () => Array.from(MessageToggleSwitch.toggleStates.entries())
+      },
     },
 
     // User Interface
